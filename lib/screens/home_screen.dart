@@ -4,7 +4,9 @@ import 'dart:io';
 import '../models/motorcycle.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
+import '../providers/settings_provider.dart';
 import 'add_motorcycle_screen.dart';
+import 'motorcycle_detail_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -27,10 +29,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final motorcycles = ref.watch(motorcycleProvider);
     final allRecords = ref.watch(serviceRecordsProvider);
+    final settings = ref.watch(settingsProvider);
 
     if (motorcycles.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+      return Scaffold(
+        backgroundColor: const Color(0xFFF1F5F9), // Slate 100
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0F172A).withOpacity(0.04),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Icon(Icons.two_wheeler_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Garasi Masih Kosong',
+                style: TextStyle(
+                  fontSize: 24,
+                  letterSpacing: -0.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Yuk tambahkan motor pertamamu\ndan mulai kelola perawatannya!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15, 
+                  color: Color(0xFF64748B),
+                  height: 1.6,
+                ),
+              ),
+              const SizedBox(height: 36),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AddMotorcycleScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text(
+                  'Tambah Motor',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } // Akhir dari penutup if (motorcycles.isEmpty)
 
     // Pastikan index tidak out of bounds
     if (_currentMotorIndex >= motorcycles.length) {
@@ -62,8 +140,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       kmSinceLastService = activeMotor.odometer;
     if (kmSinceLastService < 0) kmSinceLastService = 0;
 
-    // Asumsi interval ganti oli / service tiap 2000 KM
-    final int interval = 2000;
+    // Asumsi interval ganti oli diambil dari Settings
+    final int interval = settings.serviceInterval;
     int healthPercentage = 100 - (kmSinceLastService / interval * 100).toInt();
     if (healthPercentage < 0) healthPercentage = 0;
     if (healthPercentage > 100) healthPercentage = 100;
@@ -82,27 +160,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         healthPercentage <= 20 || kmSinceLastService >= interval;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: const Color(0xFFF1F5F9), // Slate 100
       appBar: _buildAppBar(),
+      extendBodyBehindAppBar: false,
       body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildWelcomeHeader(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             _buildMotorcycleCarousel(motorcycles),
-            const SizedBox(height: 16),
-            _buildPaginationDots(motorcycles),
             const SizedBox(height: 24),
+            _buildPaginationDots(motorcycles),
+            const SizedBox(height: 32),
             _buildStatsSection(activeMotor, healthPercentage, healthStatus),
             if (needsAttention) ...[
               const SizedBox(height: 24),
-              _buildAttentionRequired(nextServiceDesc),
+              _buildAttentionRequired(activeMotor, nextServiceDesc),
             ],
             const SizedBox(height: 24),
             _buildServiceLogs(activeMotor),
-            const SizedBox(height: 24),
-            _buildNextMajorService(activeMotor, nextServiceDesc),
             const SizedBox(height: 32),
           ],
         ),
@@ -112,31 +190,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   AppBar _buildAppBar() {
     return AppBar(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: Colors.transparent,
       elevation: 0,
+      centerTitle: false,
       title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.motorcycle, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.motorcycle, color: Theme.of(context).colorScheme.primary),
+          ),
+          const SizedBox(width: 12),
           const Text(
             'RideAssist',
             style: TextStyle(
-              color: Colors.black87,
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
+              color: Color(0xFF1E293B),
+              fontWeight: FontWeight.w800,
+              fontSize: 22,
+              letterSpacing: -0.5,
             ),
           ),
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.black87),
-          onPressed: () {},
+        Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: IconButton(
+            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF475569)),
+            onPressed: () {},
+          ),
         ),
         const Padding(
-          padding: EdgeInsets.only(right: 16.0),
+          padding: EdgeInsets.only(right: 20.0),
           child: CircleAvatar(
-            radius: 16,
+            radius: 18,
             backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
           ),
         ),
@@ -150,28 +245,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: 16),
+          SizedBox(height: 24),
           Text(
-            'WELCOME BACK',
+            'Selamat Datang Kembali 👋',
             style: TextStyle(
-              fontSize: 12,
-              letterSpacing: 1.2,
-              color: Colors.grey,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+              color: Color(0xFF64748B),
             ),
           ),
           SizedBox(height: 8),
           Text(
-            'Hello, Alex',
+            'Hi, Rider!',
             style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.w300,
-              color: Colors.black87,
+              fontSize: 34,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+              letterSpacing: -1.0,
             ),
           ),
-          SizedBox(height: 16),
+          SizedBox(height: 12),
           Text(
-            "Your machine is performing at its peak. Here's your current status and maintenance schedule.",
-            style: TextStyle(fontSize: 14, color: Colors.black54, height: 1.5),
+            "Pantau performa dan jadwalkan perawatan motormu agar selalu dalam kondisi prima.",
+            style: TextStyle(
+              fontSize: 15, 
+              color: Color(0xFF64748B), 
+              height: 1.6,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ],
       ),
@@ -180,9 +282,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildMotorcycleCarousel(List<Motorcycle> motorcycles) {
     return SizedBox(
-      height: 220,
+      height: 280,
       child: PageView.builder(
         controller: _pageController,
+        physics: const BouncingScrollPhysics(),
         onPageChanged: (index) {
           setState(() {
             _currentMotorIndex = index;
@@ -191,8 +294,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         itemCount: motorcycles.length,
         itemBuilder: (context, index) {
           final motor = motorcycles[index];
-          // Simple scale animation logic can be added here if desired
-          return _buildMotorCard(motor);
+          
+          return AnimatedBuilder(
+            animation: _pageController,
+            builder: (context, child) {
+              double value = 1.0;
+              if (_pageController.position.haveDimensions) {
+                value = _pageController.page! - index;
+                value = (1 - (value.abs() * 0.15)).clamp(0.0, 1.0);
+              }
+              return Transform.scale(
+                scale: value,
+                child: Opacity(
+                  opacity: value.clamp(0.6, 1.0),
+                  child: child,
+                ),
+              );
+            },
+            child: _buildMotorCard(motor),
+          );
         },
       ),
     );
@@ -207,49 +327,66 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8.0),
+      margin: const EdgeInsets.symmetric(horizontal: 10.0),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
         image: DecorationImage(image: imageProvider, fit: BoxFit.cover),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 5),
+            color: const Color(0xFF0F172A).withOpacity(0.15),
+            blurRadius: 24,
+            spreadRadius: -4,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(32),
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+            colors: [
+              Colors.transparent, 
+              const Color(0xFF0F172A).withOpacity(0.9)
+            ],
+            stops: const [0.3, 1.0],
           ),
         ),
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 28.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              motor.brand,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+              ),
+              child: Text(
+                motor.brand.toUpperCase(),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  letterSpacing: 1.5,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Text(
               motor.name,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 24,
+                fontSize: 28,
+                letterSpacing: -0.5,
                 fontWeight: FontWeight.bold,
               ),
             ),
+
           ],
         ),
       ),
@@ -257,20 +394,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildPaginationDots(List<Motorcycle> motorcycles) {
+    if (motorcycles.length <= 1) return const SizedBox.shrink();
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(
         motorcycles.length,
         (index) => AnimatedContainer(
           duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
           margin: const EdgeInsets.symmetric(horizontal: 4),
-          height: 8,
-          width: _currentMotorIndex == index ? 24 : 8,
+          height: 6,
+          width: _currentMotorIndex == index ? 24 : 6,
           decoration: BoxDecoration(
             color: _currentMotorIndex == index
                 ? Theme.of(context).colorScheme.primary
                 : Colors.grey.shade300,
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
@@ -294,6 +433,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 title: 'TOTAL ODOMETER',
                 value: '${motor.odometer}',
                 unit: 'KM',
+                onTap: () => _showUpdateOdometerDialog(context, motor),
               ),
             ),
             const SizedBox(width: 16),
@@ -309,73 +449,102 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required String title,
     required String value,
     required String unit,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
-              letterSpacing: 1.2,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
                 ),
+                if (onTap != null)
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF94A3B8)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF94A3B8),
+                letterSpacing: 0.5,
               ),
-              const SizedBox(width: 4),
-              Text(
-                unit,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.5,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4.0),
+                  child: Text(
+                    unit,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildHealthCard(int healthPercentage, String healthStatus) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
           BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 4),
+            color: const Color(0xFF0F172A).withOpacity(0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -385,40 +554,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             alignment: Alignment.center,
             children: [
               SizedBox(
-                height: 60,
-                width: 60,
-                child: CircularProgressIndicator(
-                  value: healthPercentage / 100,
-                  strokeWidth: 6,
-                  color: _getHealthColor(healthPercentage),
-                  backgroundColor: Colors.grey.shade100,
+                height: 72,
+                width: 72,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: healthPercentage / 100),
+                  duration: const Duration(milliseconds: 1500),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, value, _) => CircularProgressIndicator(
+                    value: value,
+                    strokeWidth: 8,
+                    strokeCap: StrokeCap.round,
+                    color: _getHealthColor(healthPercentage),
+                    backgroundColor: Colors.grey.shade100,
+                  ),
                 ),
               ),
-              Text(
-                '$healthPercentage%',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$healthPercentage',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 22,
+                      letterSpacing: -0.5,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const Text(
+                    '%',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const Spacer(),
           const Text(
-            'VEHICLE HEALTH',
+            'KONDISI',
             style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
-              letterSpacing: 1.2,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF94A3B8),
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            healthStatus,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: _getHealthColor(healthPercentage),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getHealthColor(healthPercentage).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              healthStatus,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: _getHealthColor(healthPercentage),
+              ),
             ),
           ),
         ],
@@ -433,68 +631,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Theme.of(context).colorScheme.primary;
   }
 
-  Widget _buildAttentionRequired(String nextServiceInfo) {
+  Widget _buildAttentionRequired(Motorcycle motor, String nextServiceInfo) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24.0),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7EE), // Light orange background
-        borderRadius: BorderRadius.circular(20),
+        color: const Color(0xFFFEF2F2), // Light red/orange
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: const Color(0xFFFECACA), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.deepOrange,
-                size: 20,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: Color(0xFFDC2626),
+                  size: 24,
+                ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                'ATTENTION REQUIRED',
+              const SizedBox(width: 12),
+              const Text(
+                'PERHATIAN DIBUTUHKAN',
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                  color: Colors.deepOrange.shade700,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: Color(0xFFDC2626),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             nextServiceInfo,
             style: const TextStyle(
-              fontSize: 18,
+              fontSize: 20,
+              letterSpacing: -0.5,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Color(0xFF0F172A),
             ),
           ),
           const SizedBox(height: 8),
           const Text(
-            'Exceeded service interval or nearing schedule. Please plan maintenance soon.',
-            style: TextStyle(fontSize: 12, color: Colors.black54, height: 1.4),
+            'Interval servis terlewati atau sudah dekat. Jadwalkan perawatan segera.',
+            style: TextStyle(
+              fontSize: 14, 
+              color: Color(0xFF475569), 
+              height: 1.5,
+              fontWeight: FontWeight.w400,
+            ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Text(
-                'View Details',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepOrange.shade700,
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      MotorcycleDetailScreen(motorcycle: motor),
                 ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFDC2626).withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_forward,
-                size: 16,
-                color: Colors.deepOrange.shade700,
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Lihat Detail',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                  SizedBox(width: 6),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 18,
+                    color: Color(0xFFDC2626),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ],
       ),
@@ -516,12 +754,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: const [
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
               BoxShadow(
-                color: Colors.black12,
-                blurRadius: 10,
-                offset: Offset(0, 4),
+                color: const Color(0xFF0F172A).withOpacity(0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -669,66 +907,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildNextMajorService(Motorcycle motor, String nextServiceDesc) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24.0),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'NEXT MAJOR SERVICE',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            nextServiceDesc.toUpperCase(),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Recommended maintenance interval reached for ${motor.brand} ${motor.name}.',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Theme.of(context).colorScheme.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+  Future<void> _showUpdateOdometerDialog(
+    BuildContext context,
+    Motorcycle motor,
+  ) async {
+    final TextEditingController odometerController = TextEditingController(
+      text: motor.odometer.toString(),
+    );
+
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Update Odometer'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Update the current mileage of your motorcycle:'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: odometerController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Current Odometer',
+                  border: OutlineInputBorder(),
+                  suffixText: 'KM',
                 ),
-                elevation: 0,
               ),
-              child: const Text(
-                'Pre-Order Parts',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newOdo = int.tryParse(odometerController.text);
+                if (newOdo != null && newOdo >= motor.odometer) {
+                  final updatedMotor = motor.copyWith(odometer: newOdo);
+                  ref
+                      .read(motorcycleProvider.notifier)
+                      .updateMotorcycle(updatedMotor);
+                  Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Sistem gagal memproses! Odometer baru harus lebih besar atau sama dengan sebelumnya.',
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: const Text('UPDATE ODOMETER'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

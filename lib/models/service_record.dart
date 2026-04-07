@@ -1,6 +1,6 @@
 class ServiceRecord {
-  final int? id;
-  final int? motorcycleId; // Menyambungkan servis dengan motor spesifik
+  final String? id;
+  final String? motorcycleId; // Menyambungkan servis dengan motor spesifik
   final String serviceType;
   final int mileage;
   final String? location; // Menambahkan lokasi servis
@@ -11,7 +11,7 @@ class ServiceRecord {
 
   ServiceRecord({
     this.id,
-    this.motorcycleId = 1, // Default ke 1 untuk retro-compatibility aplikasi
+    this.motorcycleId,
     required this.serviceType,
     required this.mileage,
     this.location,
@@ -21,10 +21,9 @@ class ServiceRecord {
     this.receiptImagePath,
   });
 
-  // Convert a ServiceRecord into a Map for SQLite insertion
+  // Convert a ServiceRecord into a Map for SQLite/Firestore insertion
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
       'motorcycle_id': motorcycleId,
       'service_type': serviceType,
       'mileage': mileage,
@@ -36,11 +35,11 @@ class ServiceRecord {
     };
   }
 
-  // Extract a ServiceRecord object from a SQLite Map
-  factory ServiceRecord.fromMap(Map<String, dynamic> map) {
+  // Extract a ServiceRecord object from a Map
+  factory ServiceRecord.fromMap(Map<String, dynamic> map, {String? id}) {
     return ServiceRecord(
-      id: map['id'] as int?,
-      motorcycleId: map['motorcycle_id'] as int? ?? 1,
+      id: id ?? map['id']?.toString(),
+      motorcycleId: map['motorcycle_id']?.toString(),
       serviceType: map['service_type'] as String,
       mileage: map['mileage'] as int,
       location: map['location'] as String?,
@@ -53,9 +52,8 @@ class ServiceRecord {
 
   // Create a copy of the record with modified fields (useful for updates)
   ServiceRecord copyWith({
-    int? id,
-    int? motorcycleId,
-    String? serviceType,
+    String? id,
+    String? motorcycleId,
     int? mileage,
     DateTime? date,
     double? cost,

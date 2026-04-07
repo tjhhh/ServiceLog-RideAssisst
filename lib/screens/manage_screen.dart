@@ -7,6 +7,7 @@ import '../providers/motorcycle_provider.dart';
 import '../providers/service_provider.dart';
 import '../models/motorcycle.dart';
 import 'add_motorcycle_screen.dart';
+import 'motorcycle_detail_screen.dart';
 
 class ManageScreen extends ConsumerWidget {
   const ManageScreen({super.key});
@@ -78,11 +79,12 @@ class ManageScreen extends ConsumerWidget {
                       type: MaterialType.transparency,
                       child: InkWell(
                         onTap: () {
-                          _showMotorcycleDetails(
+                          Navigator.push(
                             context,
-                            motor,
-                            latestRecord,
-                            ref,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  MotorcycleDetailScreen(motorcycle: motor),
+                            ),
                           );
                         },
                         child: Stack(
@@ -147,11 +149,14 @@ class ManageScreen extends ConsumerWidget {
                                                 color: Colors.white,
                                               ),
                                               onPressed: () {
-                                                _showMotorcycleDetails(
+                                                Navigator.push(
                                                   context,
-                                                  motor,
-                                                  latestRecord,
-                                                  ref,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        MotorcycleDetailScreen(
+                                                          motorcycle: motor,
+                                                        ),
+                                                  ),
                                                 );
                                               },
                                             ),
@@ -194,101 +199,6 @@ class ManageScreen extends ConsumerWidget {
         backgroundColor: Theme.of(context).colorScheme.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
-    );
-  }
-
-  void _showMotorcycleDetails(
-    BuildContext context,
-    Motorcycle motor,
-    dynamic latestRecord,
-    WidgetRef ref,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${motor.brand} ${motor.name}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildDetailRow(
-                Icons.speed,
-                'Total Odometer',
-                '${motor.odometer} KM',
-              ),
-              const SizedBox(height: 12),
-              _buildDetailRow(
-                Icons.history,
-                'Latest Service',
-                latestRecord != null
-                    ? latestRecord.serviceType
-                    : 'No records yet',
-              ),
-              const SizedBox(height: 12),
-              _buildDetailRow(
-                Icons.calendar_today,
-                'Latest Service Date',
-                latestRecord != null
-                    ? '${latestRecord.date.day}/${latestRecord.date.month}/${latestRecord.date.year}'
-                    : '--',
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _confirmDelete(context, ref, motor);
-                  },
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete Motorcycle'),
-                  style: ElevatedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    backgroundColor: Colors.red.shade50,
-                    elevation: 0,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.indigo, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(color: Colors.black54, fontSize: 14),
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-            color: Colors.black87,
-          ),
-        ),
-      ],
     );
   }
 

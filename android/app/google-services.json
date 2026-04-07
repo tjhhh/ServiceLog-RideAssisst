@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "173690658006",
+    "project_id": "rideassist-ravelle",
+    "storage_bucket": "rideassist-ravelle.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:173690658006:android:c82b6966daba0b9da4fd77",
+        "android_client_info": {
+          "package_name": "com.example.ride_assist"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD-fkO3uzB3VSQHB1Tz07m2darQCnVsQkw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

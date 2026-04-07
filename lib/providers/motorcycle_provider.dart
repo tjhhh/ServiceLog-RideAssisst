@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/motorcycle.dart';
-import '../database/database_helper.dart';
+import '../services/firestore_service.dart';
 
 // Provider yang bisa dipanggil untuk mengambil/mengupdate list motor
 final motorcycleProvider =
@@ -9,7 +9,7 @@ final motorcycleProvider =
     );
 
 class MotorcycleNotifier extends Notifier<List<Motorcycle>> {
-  final dbHelper = DatabaseHelper.instance;
+  final dbService = FirestoreService.instance;
 
   @override
   List<Motorcycle> build() {
@@ -19,23 +19,29 @@ class MotorcycleNotifier extends Notifier<List<Motorcycle>> {
   }
 
   Future<void> loadMotorcycles() async {
-    final motors = await dbHelper.getAllMotorcycles();
-    state = motors.isEmpty ? defaultMotorcycles : motors;
+    try {
+      final motors = await dbService.getAllMotorcycles();
+      // JANGAN MERESET KE defaultMotorcycles JIKA KOSONG!
+      // Kalau kita reset ke default, garasi tidak bisa menjadi kosong dan terkesan 'tidak bisa dihapus'.
+      state = motors;
+    } catch (e) {
+      print('Error loading motorcycles: $e');
+      state = [];
+    }
   }
 
   Future<void> updateMotorcycle(Motorcycle motor) async {
-    await dbHelper.updateMotorcycle(motor);
+    await dbService.updateMotorcycle(motor);
     await loadMotorcycles();
   }
 
   Future<void> addMotorcycle(Motorcycle motor) async {
-    await dbHelper.insertMotorcycle(motor);
+    await dbService.insertMotorcycle(motor);
     await loadMotorcycles();
   }
 
-  Future<void> deleteMotorcycle(int id) async {
-    final db = await dbHelper.database;
-    await db.delete('motorcycles', where: 'id = ?', whereArgs: [id]);
+  Future<void> deleteMotorcycle(String id) async {
+    await dbService.deleteMotorcycle(id);
     await loadMotorcycles();
   }
 }

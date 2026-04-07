@@ -29,15 +29,25 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
   final _customServiceTypeController =
       TextEditingController(); // For custom service types
 
-  int? _selectedMotorcycleId;
+  String? _selectedMotorcycleId;
   String? _selectedServiceType;
   final List<String> _serviceTypes = [
-    'Oil',
-    'Tires',
-    'Brakes',
-    'Chain',
-    'Filter',
     '+ Other',
+    'Oli Mesin',
+    'Oli Gardan',
+    'Servis Ringan / Tune Up',
+    'Servis CVT',
+    'Ganti V-Belt & Roller',
+    'Ganti Kampas Ganda & Mangkok',
+    'Ganti Busi',
+    'Ganti Filter Udara',
+    'Ganti Kampas Rem',
+    'Ganti Air Radiator',
+    'Ganti Minyak Rem',
+    'Ganti Oli Shockbreaker',
+    'Stel & Lumasi Rantai',
+    'Ganti Gear Set',
+    'Ganti Kampas Kopling',
   ];
 
   DateTime? _selectedDate;
@@ -310,15 +320,17 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
               ),
             ],
           ),
-          child: PopupMenuButton<int>(
+          child: PopupMenuButton<String>(
             initialValue: _selectedMotorcycleId,
             tooltip: 'Select a motorcycle',
-            elevation: 4,
-            shadowColor: Colors.indigo.shade50.withOpacity(0.5),
+            elevation: 8,
+            shadowColor: Colors.black26,
+            surfaceTintColor: Colors.white,
             color: Colors.white,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
             ),
+            constraints: const BoxConstraints(maxHeight: 350),
             position: PopupMenuPosition.under,
             onSelected: (value) {
               setState(() {
@@ -326,22 +338,68 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
               });
             },
             itemBuilder: (context) => motorcycles.map((motor) {
-              return PopupMenuItem<int>(
+              final isSelected = motor.id == _selectedMotorcycleId;
+              final name = '${motor.brand} ${motor.name}';
+              return PopupMenuItem<String>(
                 value: motor.id,
-                child: Text('${motor.brand} ${motor.name}'),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.two_wheeler_outlined,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey.shade500,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          name,
+                          style: TextStyle(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.black87,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(
+                          Icons.check_circle,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+                ),
               );
             }).toList(),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  selectedName,
-                  style: TextStyle(
-                    color: _selectedMotorcycleId == null
-                        ? Colors.black54
-                        : Colors.indigo.shade900,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Text(
+                    selectedName,
+                    style: TextStyle(
+                      color: _selectedMotorcycleId == null
+                          ? Colors.black54
+                          : Colors.indigo.shade900,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Icon(
@@ -445,51 +503,112 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
             color: Colors.black87,
           ),
         ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: _serviceTypes.map((type) {
-            final isSelected = type == _selectedServiceType;
-            final isOther = type == '+ Other';
-
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedServiceType = type;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : (isOther ? Colors.white : Colors.indigo.shade50),
-                  borderRadius: BorderRadius.circular(20),
-                  border: isOther
-                      ? Border.all(color: Colors.grey.shade300)
-                      : null,
-                ),
-                child: Text(
-                  type,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                    color: isSelected
-                        ? Colors.white
-                        : (isOther
-                              ? Colors.black87
-                              : Theme.of(
-                                  context,
-                                ).colorScheme.primary.withOpacity(0.8)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.indigo.shade100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.indigo.shade50.withOpacity(0.5),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: PopupMenuButton<String>(
+            initialValue: _selectedServiceType,
+            tooltip: 'Select a service type',
+            elevation: 8,
+            shadowColor: Colors.black26,
+            surfaceTintColor: Colors.white,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            constraints: const BoxConstraints(maxHeight: 350),
+            position: PopupMenuPosition.under,
+            onSelected: (value) {
+              setState(() {
+                _selectedServiceType = value;
+              });
+            },
+            itemBuilder: (context) => _serviceTypes.map((type) {
+              final isSelected = type == _selectedServiceType;
+              final isOther = type == '+ Other';
+              return PopupMenuItem<String>(
+                value: type,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isOther
+                            ? Icons.add_circle_outline
+                            : Icons.build_circle_outlined,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey.shade500,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          type,
+                          style: TextStyle(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.black87,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(
+                          Icons.check_circle,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                    ],
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              );
+            }).toList(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    _selectedServiceType ?? 'Select Service Type',
+                    style: TextStyle(
+                      color: _selectedServiceType == null
+                          ? Colors.black54
+                          : Colors.indigo.shade900,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Colors.indigo.shade300,
+                ),
+              ],
+            ),
+          ),
         ),
         if (_selectedServiceType == '+ Other') ...[
           const SizedBox(height: 16),

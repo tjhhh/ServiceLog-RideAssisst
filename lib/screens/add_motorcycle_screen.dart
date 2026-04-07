@@ -21,6 +21,9 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
   final _nameController = TextEditingController();
   final _odometerController = TextEditingController();
 
+  String _selectedType = 'matic';
+  final List<String> _motorTypes = ['matic', 'bebek', 'sport'];
+
   File? _selectedImage;
   bool _isLoading = false;
 
@@ -81,6 +84,7 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
     final newMotorcycle = Motorcycle(
       brand: _brandController.text.trim(),
       name: _nameController.text.trim(),
+      type: _selectedType, // assign the selected type
       imageUrl: imageUrl,
       odometer: int.tryParse(_odometerController.text.trim()) ?? 0,
       healthPercentage: 100, // Default for new
@@ -178,16 +182,18 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
                   ),
                   const SizedBox(height: 32),
                   _buildInputField(
-                    label: 'Brand / Make',
+                    label: 'Brand',
                     hintText: 'e.g. Honda, Yamaha, Kawasaki',
                     controller: _brandController,
                   ),
                   const SizedBox(height: 24),
                   _buildInputField(
-                    label: 'Model / Name',
+                    label: 'Model',
                     hintText: 'e.g. CB650R, MT-07',
                     controller: _nameController,
                   ),
+                  const SizedBox(height: 24),
+                  _buildTypeDropdown(),
                   const SizedBox(height: 24),
                   _buildInputField(
                     label: 'Current Odometer (KM)',
@@ -222,6 +228,54 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildTypeDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Motorcycle Type',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedType,
+              isExpanded: true,
+              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+              items: _motorTypes.map((type) {
+                return DropdownMenuItem(
+                  value: type,
+                  child: Text(
+                    type[0].toUpperCase() + type.substring(1), // Capitalize
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                );
+              }).toList(),
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _selectedType = val;
+                  });
+                }
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
