@@ -23,12 +23,20 @@ dependencies:
   state_notifier: ^1.0.0
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.4
+  flutter_lints: ^5.0.0
   flutter_test:
     sdk: flutter
-  flutter_lints: ^5.0.0
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "lib/assets/logo_ra.png"
+  min_sdk_size: 21
 
 flutter:
   uses-material-design: true
 
   assets:
     - .env
+    - lib/assets/logo_ra.png

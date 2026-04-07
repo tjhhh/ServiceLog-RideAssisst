@@ -99,11 +99,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 20),
-              const Icon(
-                Icons.person_add_alt_1,
-                size: 80,
-                color: Color(0xFF0052CC),
-              ),
+              Image.asset('lib/assets/logo_ra.png', height: 100),
               const SizedBox(height: 24),
               const Text(
                 'Create Account',

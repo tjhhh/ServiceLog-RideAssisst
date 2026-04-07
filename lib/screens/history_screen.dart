@@ -66,7 +66,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
         elevation: 0,
         title: Row(
           children: [
-            Icon(Icons.motorcycle, color: Theme.of(context).colorScheme.primary),
+            Image.asset('lib/assets/logo_ra.png', width: 24, height: 24),
             const SizedBox(width: 8),
             const Text(
               'RideAssist',

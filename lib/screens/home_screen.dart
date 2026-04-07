@@ -260,10 +260,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              Icons.motorcycle,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            child: Image.asset('lib/assets/logo_ra.png', width: 24, height: 24),
           ),
           const SizedBox(width: 12),
           const Text(

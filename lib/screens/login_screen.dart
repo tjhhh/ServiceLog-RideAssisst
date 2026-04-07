@@ -94,7 +94,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 48), // Spacer to center content better
-              const Icon(Icons.two_wheeler, size: 80, color: Color(0xFF0052CC)),
+              Image.asset('lib/assets/logo_ra.png', height: 100),
               const SizedBox(height: 24),
               const Text(
                 'Welcome Back',
