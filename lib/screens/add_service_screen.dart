@@ -10,6 +10,8 @@ import '../models/service_record.dart';
 import '../models/motorcycle.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
+import '../models/service_interval.dart';
+import '../providers/service_interval_provider.dart';
 
 class AddServiceScreen extends ConsumerStatefulWidget {
   const AddServiceScreen({super.key});
@@ -28,30 +30,16 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
   final _notesController = TextEditingController();
   final _customServiceTypeController =
       TextEditingController(); // For custom service types
+  final _customIntervalController =
+      TextEditingController(); // For custom intervals
 
   String? _odometerError;
   String? _costError;
 
   String? _selectedMotorcycleId;
   String? _selectedServiceType;
-  final List<String> _serviceTypes = [
-    '+ Other',
-    'Oli Mesin',
-    'Oli Gardan',
-    'Servis Ringan / Tune Up',
-    'Servis CVT',
-    'Ganti V-Belt & Roller',
-    'Ganti Kampas Ganda & Mangkok',
-    'Ganti Busi',
-    'Ganti Filter Udara',
-    'Ganti Kampas Rem',
-    'Ganti Air Radiator',
-    'Ganti Minyak Rem',
-    'Ganti Oli Shockbreaker',
-    'Stel & Lumasi Rantai',
-    'Ganti Gear Set',
-    'Ganti Kampas Kopling',
-  ];
+
+  // We'll no longer use _serviceTypes static list, we'll build it from provider
 
   DateTime? _selectedDate;
   File? _selectedImage;
@@ -65,6 +53,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     _costController.dispose();
     _notesController.dispose();
     _customServiceTypeController.dispose();
+    _customIntervalController.dispose();
     super.dispose();
   }
 
@@ -78,22 +67,6 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     if (parsed == null) {
       setState(() => _odometerError = 'Please enter a valid number');
       return;
-    }
-
-    if (_selectedMotorcycleId != null) {
-      final motorcycles = ref.read(motorcycleProvider);
-      try {
-        final m = motorcycles.firstWhere(
-          (motor) => motor.id == _selectedMotorcycleId,
-        );
-        if (parsed < m.odometer) {
-          setState(
-            () => _odometerError =
-                'Cannot be less than last updated (${m.odometer} km)',
-          );
-          return;
-        }
-      } catch (_) {}
     }
 
     setState(() => _odometerError = null);
@@ -197,6 +170,19 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
       receiptImagePath: savedImagePath,
     );
 
+    // Save custom service type / interval if selected
+    if (_selectedServiceType == '+ Other') {
+      final intervalVal = int.tryParse(_customIntervalController.text) ?? 5000;
+      final newInterval = ServiceInterval(
+        motorcycleId: _selectedMotorcycleId!,
+        serviceItem: effectiveServiceType,
+        intervalKm: intervalVal,
+      );
+      await ref
+          .read(serviceIntervalProvider.notifier)
+          .addCustomInterval(newInterval);
+    }
+
     // Adding record to db using Riverpod
     await ref.read(serviceRecordsProvider.notifier).addRecord(newRecord);
 
@@ -214,6 +200,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
   @override
   Widget build(BuildContext context) {
     final motorcycles = ref.watch(motorcycleProvider);
+    final intervals = ref.watch(serviceIntervalProvider);
 
     // Auto-select the first motorcycle if not set yet
     if (_selectedMotorcycleId == null && motorcycles.isNotEmpty) {
@@ -222,6 +209,11 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_odometerController.text.isEmpty && mounted) {
           _odometerController.text = motorcycles.first.odometer.toString();
+        }
+        if (_selectedMotorcycleId != null) {
+          ref
+              .read(serviceIntervalProvider.notifier)
+              .fetchIntervals(_selectedMotorcycleId!, motorcycles.first.type);
         }
       });
     }
@@ -266,7 +258,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                       onTap: _pickDate,
                     ),
                     const SizedBox(height: 24),
-                    _buildServiceTypeSelector(),
+                    _buildServiceTypeSelector(intervals),
                     const SizedBox(height: 24),
                     _buildInputField(
                       label: 'Total Investment (Rp)',
@@ -395,12 +387,17 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
             onSelected: (value) {
               setState(() {
                 _selectedMotorcycleId = value;
+                _selectedServiceType = null;
                 try {
                   final m = motorcycles.firstWhere(
                     (motor) => motor.id == value,
                   );
                   _odometerController.text = m.odometer.toString();
                   _validateOdometer(_odometerController.text);
+
+                  ref
+                      .read(serviceIntervalProvider.notifier)
+                      .fetchIntervals(m.id!, m.type);
                 } catch (_) {}
               });
             },
@@ -590,7 +587,19 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     );
   }
 
-  Widget _buildServiceTypeSelector() {
+  Widget _buildServiceTypeSelector(List<ServiceInterval> intervals) {
+    // Generate the list of service types from intervals, and append '+ Other'
+    final List<String> currentServiceTypes = [
+      ...intervals.map((i) => i.serviceItem),
+      '+ Other',
+    ];
+
+    // If _selectedServiceType is not in the list, default it to null
+    if (_selectedServiceType != null &&
+        !currentServiceTypes.contains(_selectedServiceType)) {
+      _selectedServiceType = null;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -634,7 +643,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                 _selectedServiceType = value;
               });
             },
-            itemBuilder: (context) => _serviceTypes.map((type) {
+            itemBuilder: (context) => currentServiceTypes.map((type) {
               final isSelected = type == _selectedServiceType;
               final isOther = type == '+ Other';
               return PopupMenuItem<String>(
@@ -711,20 +720,17 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
         ),
         if (_selectedServiceType == '+ Other') ...[
           const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.indigo.shade50.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: TextField(
-              controller: _customServiceTypeController,
-              decoration: const InputDecoration(
-                hintText: 'Enter custom service type...',
-                hintStyle: TextStyle(color: Colors.black38, fontSize: 14),
-                border: InputBorder.none,
-              ),
-            ),
+          _buildInputField(
+            label: 'Custom Service Type',
+            hintText: 'e.g. Ganti Spion',
+            controller: _customServiceTypeController,
+          ),
+          const SizedBox(height: 16),
+          _buildInputField(
+            label: 'Service Interval (km)',
+            hintText: 'e.g. 5000',
+            controller: _customIntervalController,
+            keyboardType: TextInputType.number,
           ),
         ],
       ],
