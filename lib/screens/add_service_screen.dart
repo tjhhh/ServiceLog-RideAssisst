@@ -29,6 +29,9 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
   final _customServiceTypeController =
       TextEditingController(); // For custom service types
 
+  String? _odometerError;
+  String? _costError;
+
   String? _selectedMotorcycleId;
   String? _selectedServiceType;
   final List<String> _serviceTypes = [
@@ -63,6 +66,48 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     _notesController.dispose();
     _customServiceTypeController.dispose();
     super.dispose();
+  }
+
+  void _validateOdometer(String value) {
+    if (value.isEmpty) {
+      setState(() => _odometerError = 'Odometer is required');
+      return;
+    }
+
+    final parsed = int.tryParse(value);
+    if (parsed == null) {
+      setState(() => _odometerError = 'Please enter a valid number');
+      return;
+    }
+
+    if (_selectedMotorcycleId != null) {
+      final motorcycles = ref.read(motorcycleProvider);
+      try {
+        final m = motorcycles.firstWhere(
+          (motor) => motor.id == _selectedMotorcycleId,
+        );
+        if (parsed < m.odometer) {
+          setState(
+            () => _odometerError =
+                'Cannot be less than last updated (${m.odometer} km)',
+          );
+          return;
+        }
+      } catch (_) {}
+    }
+
+    setState(() => _odometerError = null);
+  }
+
+  void _validateCost(String value) {
+    if (value.isNotEmpty) {
+      final parsed = double.tryParse(value);
+      if (parsed == null) {
+        setState(() => _costError = 'Please enter a valid number');
+        return;
+      }
+    }
+    setState(() => _costError = null);
   }
 
   // File Picker Method
@@ -112,16 +157,21 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
         ? _customServiceTypeController.text.trim()
         : _selectedServiceType;
 
-    if (_odometerController.text.isEmpty ||
+    // Validate inputs
+    _validateOdometer(_odometerController.text);
+    _validateCost(_costController.text);
+
+    if (_odometerError != null ||
+        _costError != null ||
+        _odometerController.text.isEmpty ||
         _selectedDate == null ||
         effectiveServiceType == null ||
         effectiveServiceType.isEmpty ||
         _selectedMotorcycleId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please field all required fields (Motorcycle, Service Type, Odometer, and Date)!',
-          ),
+          content: Text('Please fill all required fields correctly!'),
+          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -168,6 +218,12 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     // Auto-select the first motorcycle if not set yet
     if (_selectedMotorcycleId == null && motorcycles.isNotEmpty) {
       _selectedMotorcycleId = motorcycles.first.id;
+      // Auto-fill odometer dengan data last updated motor
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_odometerController.text.isEmpty && mounted) {
+          _odometerController.text = motorcycles.first.odometer.toString();
+        }
+      });
     }
 
     return Scaffold(
@@ -191,6 +247,8 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                       hintText: 'e.g. 12450',
                       controller: _odometerController,
                       keyboardType: TextInputType.number,
+                      errorText: _odometerError,
+                      onChanged: _validateOdometer,
                     ),
                     const SizedBox(height: 24),
                     _buildInputField(
@@ -215,6 +273,8 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                       hintText: 'Rp 0',
                       controller: _costController,
                       keyboardType: TextInputType.number,
+                      errorText: _costError,
+                      onChanged: _validateCost,
                     ),
                     const SizedBox(height: 24),
                     _buildNotesField(),
@@ -335,6 +395,13 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
             onSelected: (value) {
               setState(() {
                 _selectedMotorcycleId = value;
+                try {
+                  final m = motorcycles.firstWhere(
+                    (motor) => motor.id == value,
+                  );
+                  _odometerController.text = m.odometer.toString();
+                  _validateOdometer(_odometerController.text);
+                } catch (_) {}
               });
             },
             itemBuilder: (context) => motorcycles.map((motor) {
@@ -422,6 +489,8 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     TextInputType keyboardType = TextInputType.text,
     bool readOnly = false,
     VoidCallback? onTap,
+    String? errorText,
+    void Function(String)? onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,22 +507,52 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           decoration: BoxDecoration(
-            color: Colors.indigo.shade50.withOpacity(0.5),
+            color: errorText != null
+                ? Colors.red.shade50.withOpacity(0.5)
+                : Colors.indigo.shade50.withOpacity(0.5),
             borderRadius: BorderRadius.circular(12),
+            border: errorText != null
+                ? Border.all(color: Colors.red.shade200)
+                : null,
           ),
           child: TextField(
             controller: controller,
             keyboardType: keyboardType,
             readOnly: readOnly,
             onTap: onTap,
+            onChanged: onChanged,
+            style: TextStyle(
+              color: errorText != null ? Colors.red.shade900 : Colors.black87,
+            ),
             decoration: InputDecoration(
               hintText: hintText,
-              hintStyle: const TextStyle(color: Colors.black38, fontSize: 16),
+              hintStyle: TextStyle(
+                color: errorText != null ? Colors.red.shade300 : Colors.black38,
+                fontSize: 16,
+              ),
               border: InputBorder.none,
-              suffixIcon: icon != null ? Icon(icon, color: Colors.grey) : null,
+              suffixIcon: icon != null
+                  ? Icon(
+                      icon,
+                      color: errorText != null
+                          ? Colors.red.shade300
+                          : Colors.grey,
+                    )
+                  : null,
             ),
           ),
         ),
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            errorText,
+            style: TextStyle(
+              color: Colors.red.shade700,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ],
     );
   }

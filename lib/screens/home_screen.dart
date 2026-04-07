@@ -1,12 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
+
 import '../models/motorcycle.dart';
+import '../models/service_interval.dart';
+import '../models/service_record.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
 import '../providers/settings_provider.dart';
 import 'add_motorcycle_screen.dart';
 import 'motorcycle_detail_screen.dart';
+
+class AttentionItem {
+  final String serviceName;
+  final int intervalKm;
+  final int kmSinceLastService;
+  final DateTime? lastReplacedDate;
+  final int lastReplacedOdo;
+
+  AttentionItem({
+    required this.serviceName,
+    required this.intervalKm,
+    required this.kmSinceLastService,
+    this.lastReplacedDate,
+    required this.lastReplacedOdo,
+  });
+
+  bool get isCritical => kmSinceLastService >= intervalKm;
+  bool get isWarning =>
+      kmSinceLastService >= (intervalKm * 0.85); // 85% mendekati limit
+}
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -51,7 +75,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ],
                 ),
-                child: Icon(Icons.two_wheeler_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
+                child: Icon(
+                  Icons.two_wheeler_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
               const SizedBox(height: 32),
               const Text(
@@ -68,7 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 'Yuk tambahkan motor pertamamu\ndan mulai kelola perawatannya!',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 15, 
+                  fontSize: 15,
                   color: Color(0xFF64748B),
                   height: 1.6,
                 ),
@@ -86,10 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 icon: const Icon(Icons.add_rounded),
                 label: const Text(
                   'Tambah Motor',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
@@ -121,43 +146,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .where((r) => r.motorcycleId == activeMotor.id)
         .toList();
 
-    // Dinamis kalkulasi Data Kesehatan
-    // Cari servis oli terakhir
-    final oilRecords = activeMotorRecords
-        .where((r) => r.serviceType.toLowerCase().contains('oil'))
-        .toList();
-    int lastOilOdo = 0;
-    if (oilRecords.isNotEmpty) {
-      oilRecords.sort((a, b) => b.mileage.compareTo(a.mileage));
-      lastOilOdo = oilRecords.first.mileage;
-    } else if (activeMotorRecords.isNotEmpty) {
-      activeMotorRecords.sort((a, b) => b.mileage.compareTo(a.mileage));
-      lastOilOdo = activeMotorRecords.first.mileage;
+    // Kalkulasi Attention & Health secara dinamis berdasarkan interval part
+    final intervals = getDefaultIntervals(activeMotor.id!, activeMotor.type);
+    List<AttentionItem> attentionItems = [];
+    int lowestHealth = 100;
+
+    for (var interval in intervals) {
+      // Cari rekam medis servis yang sesuai/mengandung kata ini
+      final relatedRecords =
+          activeMotorRecords
+              .where(
+                (r) =>
+                    r.serviceType.toLowerCase().contains(
+                      interval.serviceItem.toLowerCase(),
+                    ) ||
+                    interval.serviceItem.toLowerCase().contains(
+                      r.serviceType.toLowerCase(),
+                    ),
+              )
+              .toList()
+            ..sort((a, b) => b.mileage.compareTo(a.mileage)); // Sort terbaru
+
+      int lastReplacedOdo = 0;
+      DateTime? lastReplacedDate;
+
+      if (relatedRecords.isNotEmpty) {
+        lastReplacedOdo = relatedRecords.first.mileage;
+        lastReplacedDate = relatedRecords.first.date;
+      }
+
+      int kmSinceLastService = activeMotor.odometer - lastReplacedOdo;
+      if (lastReplacedOdo == 0 && activeMotor.odometer > 0)
+        kmSinceLastService = activeMotor.odometer;
+      if (kmSinceLastService < 0) kmSinceLastService = 0;
+
+      // Hitung presentase kesehatan spesifik part ini
+      int partHealth =
+          100 - (kmSinceLastService / interval.intervalKm * 100).toInt();
+      if (partHealth < 0) partHealth = 0;
+      if (partHealth > 100) partHealth = 100;
+
+      if (partHealth < lowestHealth)
+        lowestHealth =
+            partHealth; // Kesehatan global ngikut part yg paling kritis
+
+      final attentionItem = AttentionItem(
+        serviceName: interval.serviceItem,
+        intervalKm: interval.intervalKm,
+        kmSinceLastService: kmSinceLastService,
+        lastReplacedOdo: lastReplacedOdo,
+        lastReplacedDate: lastReplacedDate,
+      );
+
+      if (attentionItem.isWarning || attentionItem.isCritical) {
+        attentionItems.add(attentionItem);
+      }
     }
 
-    int kmSinceLastService = activeMotor.odometer - lastOilOdo;
-    if (lastOilOdo == 0 && activeMotor.odometer > 0)
-      kmSinceLastService = activeMotor.odometer;
-    if (kmSinceLastService < 0) kmSinceLastService = 0;
-
-    // Asumsi interval ganti oli diambil dari Settings
-    final int interval = settings.serviceInterval;
-    int healthPercentage = 100 - (kmSinceLastService / interval * 100).toInt();
-    if (healthPercentage < 0) healthPercentage = 0;
-    if (healthPercentage > 100) healthPercentage = 100;
+    // Urutkan peringatan, utamakan yang paling kritis
+    attentionItems.sort(
+      (a, b) => b.kmSinceLastService.compareTo(a.kmSinceLastService),
+    );
 
     String healthStatus = 'OPTIMAL';
-    if (healthPercentage <= 20) {
-      healthStatus = 'CRITICAL';
-    } else if (healthPercentage <= 50) {
-      healthStatus = 'NEEDS ATTENTION';
-    } else if (healthPercentage <= 80) {
-      healthStatus = 'GOOD';
+    if (lowestHealth <= 20) {
+      healthStatus = 'KRITIS';
+    } else if (lowestHealth <= 50) {
+      healthStatus = 'PERLU PERHATIAN';
+    } else if (lowestHealth <= 80) {
+      healthStatus = 'BAIK';
     }
-
-    String nextServiceDesc = 'Oil Change at ${lastOilOdo + interval} KM';
-    bool needsAttention =
-        healthPercentage <= 20 || kmSinceLastService >= interval;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9), // Slate 100
@@ -174,10 +232,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 24),
             _buildPaginationDots(motorcycles),
             const SizedBox(height: 32),
-            _buildStatsSection(activeMotor, healthPercentage, healthStatus),
-            if (needsAttention) ...[
+            _buildStatsSection(activeMotor, lowestHealth, healthStatus),
+            if (attentionItems.isNotEmpty) ...[
               const SizedBox(height: 24),
-              _buildAttentionRequired(activeMotor, nextServiceDesc),
+              _buildAttentionRequired(activeMotor, attentionItems),
             ],
             const SizedBox(height: 24),
             _buildServiceLogs(activeMotor),
@@ -202,7 +260,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.motorcycle, color: Theme.of(context).colorScheme.primary),
+            child: Icon(
+              Icons.motorcycle,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
           const SizedBox(width: 12),
           const Text(
@@ -218,13 +279,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       actions: [
         Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.grey.shade200),
+          margin: const EdgeInsets.only(right: 8),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: IconButton(
+            icon: const Icon(
+              Icons.notifications_outlined,
+              color: Color(0xFF475569),
             ),
-            child: IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Color(0xFF475569)),
             onPressed: () {},
           ),
         ),
@@ -269,8 +333,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Text(
             "Pantau performa dan jadwalkan perawatan motormu agar selalu dalam kondisi prima.",
             style: TextStyle(
-              fontSize: 15, 
-              color: Color(0xFF64748B), 
+              fontSize: 15,
+              color: Color(0xFF64748B),
               height: 1.6,
               fontWeight: FontWeight.w400,
             ),
@@ -294,7 +358,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         itemCount: motorcycles.length,
         itemBuilder: (context, index) {
           final motor = motorcycles[index];
-          
+
           return AnimatedBuilder(
             animation: _pageController,
             builder: (context, child) {
@@ -305,10 +369,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               }
               return Transform.scale(
                 scale: value,
-                child: Opacity(
-                  opacity: value.clamp(0.6, 1.0),
-                  child: child,
-                ),
+                child: Opacity(opacity: value.clamp(0.6, 1.0), child: child),
               );
             },
             child: _buildMotorCard(motor),
@@ -348,8 +409,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.transparent, 
-              const Color(0xFF0F172A).withOpacity(0.9)
+              Colors.transparent,
+              const Color(0xFF0F172A).withOpacity(0.9),
             ],
             stops: const [0.3, 1.0],
           ),
@@ -364,7 +425,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
               ),
               child: Text(
                 motor.brand.toUpperCase(),
@@ -386,7 +450,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
           ],
         ),
       ),
@@ -475,10 +538,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
+                  child: Icon(
+                    icon,
+                    color: Theme.of(context).colorScheme.primary,
+                    size: 24,
+                  ),
                 ),
                 if (onTap != null)
                   Container(
@@ -487,7 +556,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       color: Colors.grey.shade50,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.edit_outlined, size: 16, color: Color(0xFF94A3B8)),
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      size: 16,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ),
               ],
             ),
@@ -631,7 +704,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Theme.of(context).colorScheme.primary;
   }
 
-  Widget _buildAttentionRequired(Motorcycle motor, String nextServiceInfo) {
+  Widget _buildAttentionRequired(
+    Motorcycle motor,
+    List<AttentionItem> attentionItems,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24.0),
       padding: const EdgeInsets.all(24),
@@ -670,26 +746,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          Text(
-            nextServiceInfo,
-            style: const TextStyle(
-              fontSize: 20,
-              letterSpacing: -0.5,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
+
+          ...attentionItems.take(3).map((item) {
+            String dateLabel = item.lastReplacedDate != null
+                ? DateFormat('dd MMM yyyy').format(item.lastReplacedDate!)
+                : 'Belum Pernah';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          item.serviceName,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        '${item.kmSinceLastService} / ${item.intervalKm} KM',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: item.isCritical
+                              ? Colors.red
+                              : Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: 14,
+                        color: Colors.grey.shade600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Terakhir diganti: $dateLabel (Odo: ${item.lastReplacedOdo} KM)',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          if (attentionItems.length > 3)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12.0),
+              child: Text(
+                '+ ${attentionItems.length - 3} item lainnya...',
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
-          ),
+
           const SizedBox(height: 8),
-          const Text(
-            'Interval servis terlewati atau sudah dekat. Jadwalkan perawatan segera.',
-            style: TextStyle(
-              fontSize: 14, 
-              color: Color(0xFF475569), 
-              height: 1.5,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          const SizedBox(height: 24),
           GestureDetector(
             onTap: () {
               Navigator.push(
@@ -717,7 +848,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Lihat Detail',
+                    'Lihat Detail & Servis',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -784,53 +915,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                         SizedBox(height: 4),
                         Text(
-                          'Review your last completed maintenance tasks.',
-                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                          'Riwayat perawatan terakhirmu',
+                          style: TextStyle(fontSize: 13, color: Colors.grey),
                         ),
                       ],
                     ),
                   ),
-                  Text(
-                    'View All\nHistory',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              MotorcycleDetailScreen(motorcycle: motor),
+                        ),
+                      );
+                    },
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(50, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'See All',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
               if (displayRecords.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24.0),
-                  child: Center(child: Text('Belum ada log servis.')),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.history_toggle_off,
+                          size: 48,
+                          color: Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Belum ada riwayat servis',
+                          style: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 )
               else
-                ...displayRecords.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final record = entry.value;
-                  final isLast = index == displayRecords.length - 1;
-
-                  return Column(
-                    children: [
-                      _buildLogItem(
-                        icon: Icons.settings_suggest,
-                        title: record.serviceType,
-                        subtitle: 'Odometer: ${record.mileage} KM',
-                        date: '${record.date.day}/${record.date.month}',
-                        status: 'SUCCESS',
-                      ),
-                      if (!isLast)
-                        const Divider(
-                          height: 32,
-                          thickness: 1,
-                          color: Color(0xFFF0F0F0),
-                        ),
-                    ],
-                  );
-                }).toList(),
+                ...displayRecords.map(
+                  (record) => _buildLogItem(
+                    record.serviceType,
+                    DateFormat('dd MMM yyyy').format(record.date),
+                    '${record.mileage} KM',
+                  ),
+                ),
             ],
           ),
         );
@@ -838,72 +985,60 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildLogItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String date,
-    required String status,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            shape: BoxShape.circle,
+  Widget _buildLogItem(String title, String date, String mileage) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8F9FB),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.build_circle_outlined,
+              color: Colors.black87,
+              size: 24,
+            ),
           ),
-          child: Icon(
-            icon,
-            color: Theme.of(context).colorScheme.primary,
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: Colors.black87,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  date,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
           ),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              date,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              mileage,
               style: const TextStyle(
+                color: Colors.blue,
                 fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: Colors.black87,
+                fontSize: 12,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              status,
-              style: const TextStyle(
-                fontSize: 10,
-                letterSpacing: 1,
-                color: Colors.black54,
-              ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
