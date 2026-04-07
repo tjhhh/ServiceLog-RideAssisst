@@ -81,11 +81,19 @@ class FirestoreService {
         .doc(_uid)
         .collection('service_records')
         .where('motorcycle_id', isEqualTo: motorcycleId)
-        .orderBy('date', descending: true)
         .get();
-    return snapshot.docs
+        
+    final records = snapshot.docs
         .map((doc) => ServiceRecord.fromMap(doc.data(), id: doc.id))
         .toList();
+        
+    records.sort((a, b) {
+      final dateA = a.createdAt ?? a.date;
+      final dateB = b.createdAt ?? b.date;
+      return dateB.compareTo(dateA);
+    });
+    
+    return records;
   }
 
   Future<List<ServiceRecord>> getAllServiceRecords() async {
@@ -93,11 +101,19 @@ class FirestoreService {
         .collection('users')
         .doc(_uid)
         .collection('service_records')
-        .orderBy('date', descending: true)
         .get();
-    return snapshot.docs
+        
+    final records = snapshot.docs
         .map((doc) => ServiceRecord.fromMap(doc.data(), id: doc.id))
         .toList();
+        
+    records.sort((a, b) {
+      final dateA = a.createdAt ?? a.date;
+      final dateB = b.createdAt ?? b.date;
+      return dateB.compareTo(dateA); // descending
+    });
+    
+    return records;
   }
 
   Future<String> insertServiceRecord(ServiceRecord record) async {

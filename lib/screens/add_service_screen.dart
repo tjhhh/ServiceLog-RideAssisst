@@ -797,6 +797,18 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                           width: 60,
                           height: 60,
                           fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              width: 60,
+                              height: 60,
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.broken_image_rounded,
+                                color: Colors.grey,
+                                size: 30,
+                              ),
+                            );
+                          },
                         ),
                       ),
                       const SizedBox(width: 16),

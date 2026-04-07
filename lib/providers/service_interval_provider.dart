@@ -24,6 +24,26 @@ class ServiceIntervalNotifier extends Notifier<List<ServiceInterval>> {
 
   Future<void> updateInterval(ServiceInterval interval) async {
     final db = FirestoreService.instance;
+    await db.updateServiceInterval(interval);
+
+    // Update local state smoothly
+    state = state.map((i) => i.id == interval.id ? interval : i).toList();
+  }
+
+  // Method to insert a new custom interval manually
+  Future<void> addCustomInterval(ServiceInterval interval) async {
+    final db = FirestoreService.instance;
+    final newId = await db.insertServiceInterval(interval);
+    final newInterval = interval.copyWith(id: newId);
+
+    state = [...state, newInterval];
+  }
+
+  // Optional: delete interval if user wants to remove their custom intervals
+  Future<void> deleteInterval(String id) async {
+    final db = FirestoreService.instance;
+    await db.deleteServiceInterval(id);
+    state = state.where((i) => i.id != id).toList();
   }
 }
 

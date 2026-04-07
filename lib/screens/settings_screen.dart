@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'service_interval_screen.dart';
+import 'account_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -41,13 +42,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             context,
             icon: Icons.person_outline,
             title: 'Account',
-            subtitle: 'Log out from your account',
-            onTap: () async {
-              // Sign out and clear auto-login settings
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('remember_me');
-              await prefs.remove('login_timestamp');
-              await ref.read(authServiceProvider).signOut();
+            subtitle: 'Manage your profile and theme color',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AccountScreen(),
+                ),
+              );
             },
           ),
           const SizedBox(height: 16),
@@ -87,6 +89,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   builder: (context) => const ServiceIntervalScreen(),
                 ),
               );
+            },
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            'ACCOUNT ACTIONS',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildSettingsCard(
+            context,
+            icon: Icons.logout,
+            title: 'Log Out',
+            subtitle: 'Sign out from your account',
+            onTap: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('remember_me');
+              await prefs.remove('login_timestamp');
+              await ref.read(authServiceProvider).signOut();
             },
           ),
         ],

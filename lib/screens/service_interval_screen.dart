@@ -4,6 +4,7 @@ import '../models/motorcycle.dart';
 import '../models/service_interval.dart';
 import '../providers/motorcycle_provider.dart';
 import '../providers/service_interval_provider.dart';
+import '../widgets/settings/add_custom_interval_dialog.dart';
 
 class ServiceIntervalScreen extends ConsumerStatefulWidget {
   const ServiceIntervalScreen({super.key});
@@ -190,6 +191,32 @@ class _ServiceIntervalScreenState extends ConsumerState<ServiceIntervalScreen> {
               ),
             )
           : null,
+      floatingActionButton: _selectedMotor != null
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AddCustomIntervalDialog(
+                    motorcycleId: _selectedMotor!.id!,
+                    onAdd: (newInterval) async {
+                      await ref
+                          .read(serviceIntervalProvider.notifier)
+                          .addCustomInterval(newInterval);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Custom service added!')),
+                      );
+                    },
+                  ),
+                );
+              },
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Add Custom Service',
+                style: TextStyle(color: Colors.white),
+              ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            )
+          : null,
     );
   }
 
@@ -201,13 +228,65 @@ class _ServiceIntervalScreenState extends ConsumerState<ServiceIntervalScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            interval.serviceItem,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  interval.serviceItem,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Delete Service?'),
+                      content: Text(
+                        'Are you sure you want to remove "${interval.serviceItem}"?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade50,
+                          ),
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text(
+                            'Delete',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await ref
+                        .read(serviceIntervalProvider.notifier)
+                        .deleteInterval(interval.id!);
+                    setState(() {
+                      _editedValues.remove(interval.id);
+                    });
+                  }
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(4.0),
+                  child: Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           TextFormField(

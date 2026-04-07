@@ -12,6 +12,7 @@ import 'screens/history_screen.dart';
 import 'screens/manage_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
+import 'providers/settings_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,13 +54,14 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Listen to the auth state stream
     final authState = ref.watch(authStateProvider);
+    final settings = ref.watch(settingsProvider);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'RideAssist',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0052CC), // Warna biru dari desain UI
+          seedColor: Color(settings.themeColorValue), // Dinamis dari settings
           surface: const Color(0xFFF8F9FB),
         ),
         useMaterial3: true,
