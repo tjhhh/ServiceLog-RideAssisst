@@ -15,7 +15,7 @@
 *   **🏍️ Garage Management**: Punya lebih dari satu kendaraan? Anda dapat menambah, melihat informasi spesifik, atau menghapus sepeda motor dengan mudah melalui menu "Manage" yang mengusung desain kartu modern berbasis *Glassmorphism*.
 *   **📡 Offline First**: Semua data (termasuk penyimpanan gambar/nota) disimpan 100% secara lokal dan aman di perangkat menggunakan **SQLite**. Tidak butuh koneksi internet!
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack(Real)
 
 *   **Framework**: [Flutter](https://flutter.dev/)
 *   **State Management**: [Riverpod](https://riverpod.dev/) (`flutter_riverpod`)

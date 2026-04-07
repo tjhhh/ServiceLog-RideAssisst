@@ -17,7 +17,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  
+
   // Check Session Expiration for "Remember Me"
   if (FirebaseAuth.instance.currentUser != null) {
     final prefs = await SharedPreferences.getInstance();
