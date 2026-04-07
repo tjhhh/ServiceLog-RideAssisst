@@ -3,6 +3,8 @@ class Motorcycle {
   final String brand;
   final String name;
   final String type; // matic, bebek, sport
+  final String? licensePlate; // Plat Nomor
+  final int? year; // Tahun Motor
   final String imageUrl;
   final int odometer;
   final int healthPercentage;
@@ -15,6 +17,8 @@ class Motorcycle {
     required this.brand,
     required this.name,
     this.type = 'matic', // Default type
+    this.licensePlate,
+    this.year,
     required this.imageUrl,
     required this.odometer,
     required this.healthPercentage,
@@ -29,6 +33,8 @@ class Motorcycle {
       'brand': brand,
       'name': name,
       'type': type,
+      'license_plate': licensePlate,
+      'year': year,
       'image_url': imageUrl,
       'odometer': odometer,
       'health_percentage': healthPercentage,
@@ -44,6 +50,8 @@ class Motorcycle {
       brand: map['brand'] as String,
       name: map['name'] as String,
       type: map['type'] as String? ?? 'matic',
+      licensePlate: map['license_plate'] as String?,
+      year: map['year'] as int?,
       imageUrl: map['image_url'] as String,
       odometer: map['odometer'] as int,
       healthPercentage: map['health_percentage'] as int,
@@ -58,6 +66,8 @@ class Motorcycle {
     String? brand,
     String? name,
     String? type,
+    String? licensePlate,
+    int? year,
     String? imageUrl,
     int? odometer,
     int? healthPercentage,
@@ -70,6 +80,8 @@ class Motorcycle {
       brand: brand ?? this.brand,
       name: name ?? this.name,
       type: type ?? this.type,
+      licensePlate: licensePlate ?? this.licensePlate,
+      year: year ?? this.year,
       imageUrl: imageUrl ?? this.imageUrl,
       odometer: odometer ?? this.odometer,
       healthPercentage: healthPercentage ?? this.healthPercentage,

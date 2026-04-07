@@ -1,6 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:io';
 
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
@@ -79,11 +81,28 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           ],
         ),
         actions: [
-          const Padding(
-            padding: EdgeInsets.only(right: 16.0),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
               radius: 16,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
+              backgroundColor: Colors.indigo.shade100,
+              backgroundImage:
+                  FirebaseAuth.instance.currentUser?.photoURL != null &&
+                      File(
+                        FirebaseAuth.instance.currentUser!.photoURL!,
+                      ).existsSync()
+                  ? FileImage(
+                          File(FirebaseAuth.instance.currentUser!.photoURL!),
+                        )
+                        as ImageProvider
+                  : null,
+              child:
+                  (FirebaseAuth.instance.currentUser?.photoURL == null ||
+                      !File(
+                        FirebaseAuth.instance.currentUser!.photoURL!,
+                      ).existsSync())
+                  ? const Icon(Icons.person, size: 24, color: Colors.white)
+                  : null,
             ),
           ),
         ],

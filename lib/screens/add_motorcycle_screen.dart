@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 
@@ -20,6 +21,8 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
   final _brandController = TextEditingController();
   final _nameController = TextEditingController();
   final _odometerController = TextEditingController();
+  final _licensePlateController = TextEditingController();
+  final _yearController = TextEditingController();
 
   String _selectedType = 'matic';
   final List<String> _motorTypes = ['matic', 'bebek', 'sport'];
@@ -32,6 +35,8 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
     _brandController.dispose();
     _nameController.dispose();
     _odometerController.dispose();
+    _licensePlateController.dispose();
+    _yearController.dispose();
     super.dispose();
   }
 
@@ -40,9 +45,31 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+        compressFormat: ImageCompressFormat.jpg,
+        compressQuality: 85,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Photo Motor',
+            toolbarColor: Theme.of(context).colorScheme.primary,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.ratio16x9,
+            lockAspectRatio: false,
+          ),
+          IOSUiSettings(
+            title: 'Crop Photo Motor',
+            aspectRatioLockEnabled: false,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+
+      if (croppedFile != null) {
+        setState(() {
+          _selectedImage = File(croppedFile.path);
+        });
+      }
     }
   }
 
@@ -85,6 +112,10 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
       brand: _brandController.text.trim(),
       name: _nameController.text.trim(),
       type: _selectedType, // assign the selected type
+      licensePlate: _licensePlateController.text.trim().isNotEmpty
+          ? _licensePlateController.text.trim().toUpperCase()
+          : null,
+      year: int.tryParse(_yearController.text.trim()),
       imageUrl: imageUrl,
       odometer: int.tryParse(_odometerController.text.trim()) ?? 0,
       healthPercentage: 100, // Default for new
@@ -200,6 +231,27 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
                     hintText: 'e.g. 1500',
                     controller: _odometerController,
                     keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildInputField(
+                          label: 'License Plate (Opsional)',
+                          hintText: 'e.g. B 1234 ABC',
+                          controller: _licensePlateController,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: _buildInputField(
+                          label: 'Year (Opsional)',
+                          hintText: 'e.g. 2021',
+                          controller: _yearController,
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 40),
                   SizedBox(

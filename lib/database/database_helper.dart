@@ -33,7 +33,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -67,6 +67,8 @@ class DatabaseHelper {
         brand $textType,
         name $textType,
         type $textType DEFAULT 'matic',
+        license_plate $textNullableType,
+        year INTEGER,
         image_url $textType,
         odometer $integerType,
         health_percentage $integerType,
@@ -183,6 +185,12 @@ class DatabaseHelper {
       ''');
 
       await _insertDefaultTypesAndServices(db);
+    }
+    if (oldVersion < 7) {
+      await db.execute(
+        'ALTER TABLE $tableMotorcycles ADD COLUMN license_plate TEXT',
+      );
+      await db.execute('ALTER TABLE $tableMotorcycles ADD COLUMN year INTEGER');
     }
   }
 

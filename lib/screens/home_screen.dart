@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/motorcycle.dart';
 import '../models/service_interval.dart';
@@ -289,11 +290,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             onPressed: () {},
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.only(right: 20.0),
+        Padding(
+          padding: const EdgeInsets.only(right: 20.0),
           child: CircleAvatar(
             radius: 18,
-            backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'),
+            backgroundColor: Colors.indigo.shade100,
+            backgroundImage:
+                FirebaseAuth.instance.currentUser?.photoURL != null &&
+                    File(
+                      FirebaseAuth.instance.currentUser!.photoURL!,
+                    ).existsSync()
+                ? FileImage(File(FirebaseAuth.instance.currentUser!.photoURL!))
+                      as ImageProvider
+                : null,
+            child:
+                (FirebaseAuth.instance.currentUser?.photoURL == null ||
+                    !File(
+                      FirebaseAuth.instance.currentUser!.photoURL!,
+                    ).existsSync())
+                ? const Icon(Icons.person, size: 24, color: Colors.white)
+                : null,
           ),
         ),
       ],
@@ -439,7 +455,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              motor.name,
+              '${motor.name} ${motor.year != null ? '(${motor.year})' : ''}',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 28,
@@ -447,6 +463,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            if (motor.licensePlate != null && motor.licensePlate!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.5),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        motor.licensePlate!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
