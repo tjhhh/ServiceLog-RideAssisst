@@ -33,7 +33,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -57,7 +57,8 @@ class DatabaseHelper {
         date $textType,
         cost $realType,
         notes $textType,
-        receipt_image_path $textNullableType
+        receipt_image_path $textNullableType,
+        cycle $integerType DEFAULT 0
       )
     ''');
 
@@ -73,7 +74,8 @@ class DatabaseHelper {
         odometer $integerType,
         health_percentage $integerType,
         health_status $textType,
-        next_service $textType
+        next_service $textType,
+        cycle $integerType DEFAULT 0
       )
     ''');
 
@@ -191,6 +193,16 @@ class DatabaseHelper {
         'ALTER TABLE $tableMotorcycles ADD COLUMN license_plate TEXT',
       );
       await db.execute('ALTER TABLE $tableMotorcycles ADD COLUMN year INTEGER');
+    }
+    if (oldVersion < 8) {
+      await db.execute(
+        'ALTER TABLE $tableMotorcycles ADD COLUMN cycle INTEGER DEFAULT 0',
+      );
+    }
+    if (oldVersion < 9) {
+      await db.execute(
+        'ALTER TABLE $tableRecords ADD COLUMN cycle INTEGER DEFAULT 0',
+      );
     }
   }
 

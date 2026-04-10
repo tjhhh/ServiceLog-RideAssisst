@@ -10,8 +10,11 @@ import '../models/service_record.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/notification_provider.dart';
+import '../models/notification_item.dart';
 import 'add_motorcycle_screen.dart';
 import 'motorcycle_detail_screen.dart';
+import 'account_screen.dart';
 
 class AttentionItem {
   final String serviceName;
@@ -19,6 +22,7 @@ class AttentionItem {
   final int kmSinceLastService;
   final DateTime? lastReplacedDate;
   final int lastReplacedOdo;
+  final int lastReplacedCycle;
 
   AttentionItem({
     required this.serviceName,
@@ -26,6 +30,7 @@ class AttentionItem {
     required this.kmSinceLastService,
     this.lastReplacedDate,
     required this.lastReplacedOdo,
+    this.lastReplacedCycle = 0,
   });
 
   bool get isCritical => kmSinceLastService >= intervalKm;
@@ -55,6 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final motorcycles = ref.watch(motorcycleProvider);
     final allRecords = ref.watch(serviceRecordsProvider);
     final settings = ref.watch(settingsProvider);
+    final notifications = ref.watch(notificationProvider);
 
     if (motorcycles.isEmpty) {
       return Scaffold(
@@ -170,15 +176,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
       int lastReplacedOdo = 0;
       DateTime? lastReplacedDate;
+      int lastReplacedCycle = 0;
 
       if (relatedRecords.isNotEmpty) {
         lastReplacedOdo = relatedRecords.first.mileage;
         lastReplacedDate = relatedRecords.first.date;
+        lastReplacedCycle = relatedRecords.first.cycle;
       }
 
-      int kmSinceLastService = activeMotor.odometer - lastReplacedOdo;
-      if (lastReplacedOdo == 0 && activeMotor.odometer > 0)
-        kmSinceLastService = activeMotor.odometer;
+      int activeFullOdo = (activeMotor.cycle * 100000) + activeMotor.odometer;
+      int lastFullOdo = (lastReplacedCycle * 100000) + lastReplacedOdo;
+
+      int kmSinceLastService = activeFullOdo - lastFullOdo;
+      if (lastReplacedOdo == 0 && lastReplacedCycle == 0 && activeFullOdo > 0) {
+        kmSinceLastService = activeFullOdo;
+      }
       if (kmSinceLastService < 0) kmSinceLastService = 0;
 
       // Hitung presentase kesehatan spesifik part ini
@@ -197,6 +209,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         kmSinceLastService: kmSinceLastService,
         lastReplacedOdo: lastReplacedOdo,
         lastReplacedDate: lastReplacedDate,
+        lastReplacedCycle: lastReplacedCycle,
       );
 
       if (attentionItem.isWarning || attentionItem.isCritical) {
@@ -220,7 +233,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9), // Slate 100
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(notifications),
       extendBodyBehindAppBar: false,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
@@ -247,7 +260,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  AppBar _buildAppBar() {
+  AppBar _buildAppBar(List<NotificationItem> notifications) {
     return AppBar(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -282,34 +295,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             shape: BoxShape.circle,
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: IconButton(
-            icon: const Icon(
-              Icons.notifications_outlined,
-              color: Color(0xFF475569),
-            ),
-            onPressed: () {},
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: Color(0xFF475569),
+                ),
+                onPressed: () => _showNotificationBottomSheet(context, notifications),
+              ),
+              if (notifications.isNotEmpty)
+                Positioned(
+                  right: 10,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 8,
+                      minHeight: 8,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(right: 20.0),
-          child: CircleAvatar(
-            radius: 18,
-            backgroundColor: Colors.indigo.shade100,
-            backgroundImage:
-                FirebaseAuth.instance.currentUser?.photoURL != null &&
-                    File(
-                      FirebaseAuth.instance.currentUser!.photoURL!,
-                    ).existsSync()
-                ? FileImage(File(FirebaseAuth.instance.currentUser!.photoURL!))
-                      as ImageProvider
-                : null,
-            child:
-                (FirebaseAuth.instance.currentUser?.photoURL == null ||
-                    !File(
-                      FirebaseAuth.instance.currentUser!.photoURL!,
-                    ).existsSync())
-                ? const Icon(Icons.person, size: 24, color: Colors.white)
-                : null,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AccountScreen()),
+              );
+            },
+            child: CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.indigo.shade100,
+              backgroundImage:
+                  FirebaseAuth.instance.currentUser?.photoURL != null &&
+                      File(
+                        FirebaseAuth.instance.currentUser!.photoURL!,
+                      ).existsSync()
+                  ? FileImage(File(FirebaseAuth.instance.currentUser!.photoURL!))
+                        as ImageProvider
+                  : null,
+              child:
+                  (FirebaseAuth.instance.currentUser?.photoURL == null ||
+                      !File(
+                        FirebaseAuth.instance.currentUser!.photoURL!,
+                      ).existsSync())
+                  ? const Icon(Icons.person, size: 24, color: Colors.white)
+                  : null,
+            ),
           ),
         ),
       ],
@@ -537,7 +579,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Expanded(
               child: _buildInfoCard(
                 icon: Icons.speed,
-                title: 'TOTAL ODOMETER',
+                title: motor.cycle > 0 ? 'ODO (CYCLE ${motor.cycle})' : 'TOTAL ODOMETER',
                 value: '${motor.odometer}',
                 unit: 'KM',
                 onTap: () => _showUpdateOdometerDialog(context, motor),
@@ -838,7 +880,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Terakhir diganti: $dateLabel (Odo: ${item.lastReplacedOdo} KM)',
+                        'Terakhir diganti: $dateLabel (Odo: ${item.lastReplacedOdo} KM${item.lastReplacedCycle > 0 ? ' - Cycle ${item.lastReplacedCycle}' : ''})',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -1019,7 +1061,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   (record) => _buildLogItem(
                     record.serviceType,
                     DateFormat('dd MMM yyyy').format(record.date),
-                    '${record.mileage} KM',
+                    '${record.mileage} KM${record.cycle > 0 ? '\nCyc ${record.cycle}' : ''}',
                   ),
                 ),
             ],
@@ -1097,53 +1139,217 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Update Odometer'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Update the current mileage of your motorcycle:'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: odometerController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Current Odometer',
-                  border: OutlineInputBorder(),
-                  suffixText: 'KM',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final newOdo = int.tryParse(odometerController.text);
-                if (newOdo != null && newOdo >= motor.odometer) {
-                  final updatedMotor = motor.copyWith(odometer: newOdo);
-                  ref
-                      .read(motorcycleProvider.notifier)
-                      .updateMotorcycle(updatedMotor);
-                  Navigator.pop(context);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Sistem gagal memproses! Odometer baru harus lebih besar atau sama dengan sebelumnya.',
+        return StatefulBuilder(
+          builder: (context, setStateBuilder) {
+            int currentInput = int.tryParse(odometerController.text) ?? motor.odometer;
+            bool showResetButton = currentInput >= 99888;
+
+            return AlertDialog(
+              title: const Text('Update Odometer'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Update the current mileage of your motorcycle:'),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: odometerController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 5,
+                    onChanged: (val) {
+                      setStateBuilder(() {});
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Current Odometer',
+                      border: OutlineInputBorder(),
+                      suffixText: 'KM',
+                      counterText: '',
+                    ),
+                  ),
+                  if (showResetButton) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Odometer mencapai batas maksimal. Silakan reset untuk memulai Cycle baru.',
+                            style: TextStyle(fontSize: 13, color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              final updatedMotor = motor.copyWith(
+                                odometer: 0,
+                                cycle: motor.cycle + 1,
+                              );
+                              ref
+                                  .read(motorcycleProvider.notifier)
+                                  .updateMotorcycle(updatedMotor);
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('RESET ODOMETER'),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }
-              },
-              child: const Text('UPDATE ODOMETER'),
-            ),
-          ],
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('CANCEL'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final newOdo = int.tryParse(odometerController.text);
+                    if (newOdo != null && newOdo >= motor.odometer && newOdo <= 99999) {
+                      final updatedMotor = motor.copyWith(odometer: newOdo);
+                      ref
+                          .read(motorcycleProvider.notifier)
+                          .updateMotorcycle(updatedMotor);
+                      Navigator.pop(context);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Gagal memproses! Odometer baru harus lebih besar/sama dengan sebelumnya dan maksimal 99.999.',
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: const Text('UPDATE ODOMETER'),
+                ),
+              ],
+            );
+          },
         );
       },
+    );
+  }
+
+  void _showNotificationBottomSheet(BuildContext context, List<NotificationItem> notifications) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Notifikasi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              if (notifications.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(32.0),
+                  child: Text('Semua beres! Tidak ada notifikasi perawatan saat ini.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                )
+              else
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: notifications.length,
+                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = notifications[index];
+                      Color bgColor;
+                      Color iconColor;
+                      IconData icon;
+
+                      switch (item.type) {
+                        case NotificationType.OdometerLimit:
+                        case NotificationType.Critical:
+                          bgColor = Colors.red.shade50;
+                          iconColor = Colors.red;
+                          icon = item.type == NotificationType.OdometerLimit ? Icons.speed : Icons.warning_amber_rounded;
+                          break;
+                        case NotificationType.Warning:
+                          bgColor = Colors.orange.shade50;
+                          iconColor = Colors.orange;
+                          icon = Icons.info_outline_rounded;
+                          break;
+                      }
+                      
+                      final dateLabel = DateFormat('dd MMM yyyy').format(item.date);
+                      
+                      return Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: bgColor,
+                              child: Icon(icon, color: iconColor),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.title,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                      ),
+                                      Text(
+                                        dateLabel,
+                                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.indigo.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      item.motorcycleName,
+                                      style: TextStyle(
+                                        color: Colors.indigo.shade700,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    item.description,
+                                    style: const TextStyle(fontSize: 12, height: 1.4),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      }
     );
   }
 }

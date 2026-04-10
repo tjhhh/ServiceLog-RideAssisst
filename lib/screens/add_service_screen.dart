@@ -38,6 +38,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
 
   String? _selectedMotorcycleId;
   String? _selectedServiceType;
+  int? _selectedCycle;
 
   // We'll no longer use _serviceTypes static list, we'll build it from provider
 
@@ -159,6 +160,9 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
       savedImagePath = await _saveImageLocally(_selectedImage!);
     }
 
+    final motors = ref.read(motorcycleProvider);
+    final selectedMotor = motors.firstWhere((m) => m.id == _selectedMotorcycleId, orElse: () => motors.first);
+
     final newRecord = ServiceRecord(
       motorcycleId: _selectedMotorcycleId,
       serviceType: effectiveServiceType,
@@ -168,6 +172,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
       cost: double.tryParse(_costController.text) ?? 0.0,
       notes: _notesController.text,
       receiptImagePath: savedImagePath,
+      cycle: _selectedCycle ?? selectedMotor.cycle,
     );
 
     // Save custom service type / interval if selected
@@ -205,6 +210,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     // Auto-select the first motorcycle if not set yet
     if (_selectedMotorcycleId == null && motorcycles.isNotEmpty) {
       _selectedMotorcycleId = motorcycles.first.id;
+      _selectedCycle = motorcycles.first.cycle;
       // Auto-fill odometer dengan data last updated motor
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_odometerController.text.isEmpty && mounted) {
@@ -234,6 +240,9 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                     const SizedBox(height: 32),
                     _buildMotorcycleSelector(motorcycles),
                     const SizedBox(height: 24),
+                    if (_selectedMotorcycleId != null) ...[
+                      _buildCycleSelector(motorcycles.firstWhere((m) => m.id == _selectedMotorcycleId, orElse: () => motorcycles.first)),
+                    ],
                     _buildInputField(
                       label: 'Odometer Reading (km)',
                       hintText: 'e.g. 12450',
@@ -393,6 +402,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                     (motor) => motor.id == value,
                   );
                   _odometerController.text = m.odometer.toString();
+                  _selectedCycle = m.cycle;
                   _validateOdometer(_odometerController.text);
 
                   ref
@@ -550,6 +560,112 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
             ),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildCycleSelector(Motorcycle activeMotor) {
+    if (activeMotor.cycle == 0) {
+      return const SizedBox.shrink();
+    }
+
+    final List<int> cycleOptions = List.generate(activeMotor.cycle + 1, (index) => index);
+    final currentCycle = _selectedCycle ?? activeMotor.cycle;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Cycle',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.indigo.shade100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.indigo.shade50.withOpacity(0.5),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: PopupMenuButton<int>(
+             initialValue: currentCycle,
+             tooltip: 'Select Cycle',
+             elevation: 8,
+             shadowColor: Colors.black26,
+             surfaceTintColor: Colors.white,
+             color: Colors.white,
+             shape: RoundedRectangleBorder(
+               borderRadius: BorderRadius.circular(20),
+             ),
+             position: PopupMenuPosition.under,
+             onSelected: (val) {
+               setState(() {
+                 _selectedCycle = val;
+               });
+             },
+             itemBuilder: (context) => cycleOptions.map((c) {
+                final isSelected = c == currentCycle;
+                return PopupMenuItem<int>(
+                   value: c,
+                   padding: const EdgeInsets.symmetric(horizontal: 16),
+                   child: Container(
+                     width: double.infinity,
+                     padding: const EdgeInsets.symmetric(vertical: 10),
+                     decoration: BoxDecoration(
+                       border: Border(
+                         bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                       ),
+                     ),
+                     child: Row(
+                       children: [
+                          Icon(Icons.history, color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade500, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Cycle $c',
+                              style: TextStyle(
+                                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black87,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            )
+                          ),
+                          if (isSelected) Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 20)
+                       ]
+                     )
+                   )
+                );
+             }).toList(),
+             child: Row(
+               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+               children: [
+                  Expanded(
+                    child: Text(
+                      'Cycle $currentCycle',
+                      style: TextStyle(
+                        color: Colors.indigo.shade900,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      )
+                    )
+                  ),
+                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.indigo.shade300)
+               ]
+             )
+          )
+        ),
+        const SizedBox(height: 24),
       ],
     );
   }

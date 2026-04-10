@@ -11,6 +11,7 @@ class Motorcycle {
   final String healthStatus;
   final String nextService;
   final bool isDeleted; // Tambahan untuk fitur soft delete
+  final int cycle;
 
   Motorcycle({
     this.id,
@@ -25,6 +26,7 @@ class Motorcycle {
     required this.healthStatus,
     required this.nextService,
     this.isDeleted = false, // Set bawaan false
+    this.cycle = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -41,6 +43,7 @@ class Motorcycle {
       'health_status': healthStatus,
       'next_service': nextService,
       'is_deleted': isDeleted,
+      'cycle': cycle,
     };
   }
 
@@ -58,6 +61,7 @@ class Motorcycle {
       healthStatus: map['health_status'] as String,
       nextService: map['next_service'] as String,
       isDeleted: map['is_deleted'] as bool? ?? false,
+      cycle: map['cycle'] as int? ?? 0,
     );
   }
 
@@ -74,6 +78,7 @@ class Motorcycle {
     String? healthStatus,
     String? nextService,
     bool? isDeleted,
+    int? cycle,
   }) {
     return Motorcycle(
       id: id ?? this.id,
@@ -88,6 +93,7 @@ class Motorcycle {
       healthStatus: healthStatus ?? this.healthStatus,
       nextService: nextService ?? this.nextService,
       isDeleted: isDeleted ?? this.isDeleted,
+      cycle: cycle ?? this.cycle,
     );
   }
 } // End MotorCycle class

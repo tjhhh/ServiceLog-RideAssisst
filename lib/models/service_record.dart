@@ -9,6 +9,7 @@ class ServiceRecord {
   final String notes;
   final String? receiptImagePath;
   final DateTime? createdAt;
+  final int cycle;
 
   ServiceRecord({
     this.id,
@@ -21,6 +22,7 @@ class ServiceRecord {
     required this.notes,
     this.receiptImagePath,
     this.createdAt,
+    this.cycle = 0,
   });
 
   // Convert a ServiceRecord into a Map for SQLite/Firestore insertion
@@ -35,6 +37,7 @@ class ServiceRecord {
       'notes': notes,
       'receipt_image_path': receiptImagePath,
       'created_at': createdAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      'cycle': cycle,
     };
   }
 
@@ -51,6 +54,7 @@ class ServiceRecord {
       notes: map['notes'] as String,
       receiptImagePath: map['receipt_image_path'] as String?,
       createdAt: map['created_at'] != null ? DateTime.parse(map['created_at'] as String) : null,
+      cycle: map['cycle'] as int? ?? 0,
     );
   }
 
@@ -64,6 +68,7 @@ class ServiceRecord {
     String? notes,
     String? receiptImagePath,
     DateTime? createdAt,
+    int? cycle,
   }) {
     return ServiceRecord(
       id: id ?? this.id,
@@ -75,6 +80,7 @@ class ServiceRecord {
       notes: notes ?? this.notes,
       receiptImagePath: receiptImagePath ?? this.receiptImagePath,
       createdAt: createdAt ?? this.createdAt,
+      cycle: cycle ?? this.cycle,
     );
   }
 }
