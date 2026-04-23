@@ -7,6 +7,7 @@ import '../models/service_record.dart';
 import '../models/motorcycle.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
+import '../widgets/history/service_detail_sheet.dart';
 import 'add_service_screen.dart';
 
 class FullHistoryScreen extends ConsumerStatefulWidget {
@@ -18,6 +19,15 @@ class FullHistoryScreen extends ConsumerStatefulWidget {
 
 class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
   String? _selectedMotorcycleId; // State untuk filter motor
+  String _searchQuery = '';
+  String _sortBy = 'Date (Newest)';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +38,37 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
     final activeMotorcycleIds = motorcycles.map((m) => m.id).toSet();
 
     // Filter by selected motorcycle if any, and ensure we only show active ones when "All" is selected
-    final records = _selectedMotorcycleId == null
+    var records = _selectedMotorcycleId == null
         ? allRecords
               .where((r) => activeMotorcycleIds.contains(r.motorcycleId))
               .toList()
         : allRecords
               .where((r) => r.motorcycleId == _selectedMotorcycleId)
               .toList();
+
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      records = records.where((r) {
+        return r.serviceType.toLowerCase().contains(query) ||
+               r.notes.toLowerCase().contains(query) ||
+               (r.location != null && r.location!.toLowerCase().contains(query));
+      }).toList();
+    }
+
+    switch (_sortBy) {
+      case 'Date (Newest)':
+        records.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case 'Date (Oldest)':
+        records.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case 'Cost (Highest)':
+        records.sort((a, b) => b.cost.compareTo(a.cost));
+        break;
+      case 'Cost (Lowest)':
+        records.sort((a, b) => a.cost.compareTo(b.cost));
+        break;
+    }
 
     // 2. Hitung Total Pengeluaran
     final totalSpent = records.fold<double>(
@@ -47,7 +81,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
     ).format(totalSpent);
 
     // 3. Kalkulasi Kapan Servis Terakhir
-    String lastServiceAgo = '--';
+    String lastServiceAgo = 'N/A';
     String lastServiceUnit = '';
     if (records.isNotEmpty) {
       final latestRecord = records.reduce(
@@ -57,7 +91,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
       if (difference == 0) {
         lastServiceAgo = 'Today';
       } else {
-        lastServiceAgo = '${difference}d';
+        lastServiceAgo = '${difference.abs()}d';
         lastServiceUnit = 'ago';
       }
     }
@@ -250,12 +284,16 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  totalSpent,
-                  style: const TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    totalSpent,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -281,28 +319,32 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      lastServiceAgo,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        lastServiceAgo,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      lastServiceUnit,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white.withOpacity(0.9),
+                      const SizedBox(width: 4),
+                      Text(
+                        lastServiceUnit,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.9),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -330,8 +372,14 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
               ],
               border: Border.all(color: Colors.grey.shade100, width: 1),
             ),
-            child: const TextField(
-              decoration: InputDecoration(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              decoration: const InputDecoration(
                 icon: Icon(Icons.search, color: Colors.grey, size: 20),
                 hintText: 'Search service title, parts, or notes...',
                 hintStyle: TextStyle(
@@ -346,24 +394,59 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
+        PopupMenuButton<String>(
+          initialValue: _sortBy,
+          tooltip: 'Sort Options',
+          elevation: 4,
+          shadowColor: Colors.black12,
+          surfaceTintColor: Colors.white,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: Border.all(color: Colors.grey.shade100, width: 1),
           ),
-          child: Icon(
-            Icons.tune_rounded, // or filter_list, but tune_rounded is modern
-            color: Theme.of(context).colorScheme.primary,
-            size: 20,
+          position: PopupMenuPosition.under,
+          onSelected: (value) {
+            setState(() {
+              _sortBy = value;
+            });
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem<String>(
+              value: 'Date (Newest)',
+              child: Text('Date (Newest)'),
+            ),
+            const PopupMenuItem<String>(
+              value: 'Date (Oldest)',
+              child: Text('Date (Oldest)'),
+            ),
+            const PopupMenuItem<String>(
+              value: 'Cost (Highest)',
+              child: Text('Cost (Highest)'),
+            ),
+            const PopupMenuItem<String>(
+              value: 'Cost (Lowest)',
+              child: Text('Cost (Lowest)'),
+            ),
+          ],
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(color: Colors.grey.shade100, width: 1),
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              color: Theme.of(context).colorScheme.primary,
+              size: 20,
+            ),
           ),
         ),
       ],
@@ -434,6 +517,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           imageUrl: record.receiptImagePath, // ini path lokal
           isLast: isLast,
           date: DateFormat('MMM dd, yyyy').format(record.date),
+          onTap: () => showServiceDetailSheet(context, record),
         );
       }).toList(),
     );
@@ -451,6 +535,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
     String? location,
     String? imageUrl,
     bool isLast = false,
+    VoidCallback? onTap,
   }) {
     return IntrinsicHeight(
       child: Row(
@@ -484,47 +569,54 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           const SizedBox(width: 16),
           // Content Card
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: InkWell(
+                onTap: onTap,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade100, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
+                child: Ink(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey.shade100, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: typeColor,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          type,
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                            color: typeTextColor,
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: typeColor,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            type,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                              color: typeTextColor,
+                            ),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         price,
                         style: const TextStyle(
@@ -628,6 +720,8 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                   ],
                 ],
               ),
+            ),
+            ),
             ),
           ),
         ],
