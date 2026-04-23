@@ -12,6 +12,7 @@ import '../providers/motorcycle_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/notification_provider.dart';
 import '../models/notification_item.dart';
+import '../widgets/odometer_update_sheet.dart';
 import 'add_motorcycle_screen.dart';
 import 'motorcycle_detail_screen.dart';
 import 'account_screen.dart';
@@ -359,13 +360,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildWelcomeHeader() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.0),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(height: 24),
-          Text(
+          const SizedBox(height: 24),
+          const Text(
             'Selamat Datang Kembali 👋',
             style: TextStyle(
               fontSize: 14,
@@ -374,18 +375,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: Color(0xFF64748B),
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            'Hi, Rider!',
-            style: TextStyle(
+            'Hi, ${FirebaseAuth.instance.currentUser?.displayName?.isNotEmpty == true ? FirebaseAuth.instance.currentUser!.displayName : 'Rider'}!',
+            style: const TextStyle(
               fontSize: 34,
               fontWeight: FontWeight.w800,
               color: Color(0xFF0F172A),
               letterSpacing: -1.0,
             ),
           ),
-          SizedBox(height: 12),
-          Text(
+          const SizedBox(height: 12),
+          const Text(
             "Pantau performa dan jadwalkan perawatan motormu agar selalu dalam kondisi prima.",
             style: TextStyle(
               fontSize: 15,
@@ -1132,109 +1133,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BuildContext context,
     Motorcycle motor,
   ) async {
-    final TextEditingController odometerController = TextEditingController(
-      text: motor.odometer.toString(),
-    );
-
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setStateBuilder) {
-            int currentInput = int.tryParse(odometerController.text) ?? motor.odometer;
-            bool showResetButton = currentInput >= 99888;
-
-            return AlertDialog(
-              title: const Text('Update Odometer'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('Update the current mileage of your motorcycle:'),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: odometerController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 5,
-                    onChanged: (val) {
-                      setStateBuilder(() {});
-                    },
-                    decoration: const InputDecoration(
-                      labelText: 'Current Odometer',
-                      border: OutlineInputBorder(),
-                      suffixText: 'KM',
-                      counterText: '',
-                    ),
-                  ),
-                  if (showResetButton) ...[
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Odometer mencapai batas maksimal. Silakan reset untuk memulai Cycle baru.',
-                            style: TextStyle(fontSize: 13, color: Colors.red),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: () {
-                              final updatedMotor = motor.copyWith(
-                                odometer: 0,
-                                cycle: motor.cycle + 1,
-                              );
-                              ref
-                                  .read(motorcycleProvider.notifier)
-                                  .updateMotorcycle(updatedMotor);
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('RESET ODOMETER'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('CANCEL'),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final newOdo = int.tryParse(odometerController.text);
-                    if (newOdo != null && newOdo >= motor.odometer && newOdo <= 99999) {
-                      final updatedMotor = motor.copyWith(odometer: newOdo);
-                      ref
-                          .read(motorcycleProvider.notifier)
-                          .updateMotorcycle(updatedMotor);
-                      Navigator.pop(context);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Gagal memproses! Odometer baru harus lebih besar/sama dengan sebelumnya dan maksimal 99.999.',
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text('UPDATE ODOMETER'),
-                ),
-              ],
-            );
-          },
-        );
+    await showOdometerUpdateSheet(
+      context,
+      motor,
+      onSaveKm: (newOdo) async {
+        final updated = motor.copyWith(odometer: newOdo);
+        ref.read(motorcycleProvider.notifier).updateMotorcycle(updated);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Odometer diperbarui ke $newOdo KM'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
+      },
+      onSaveCycle: (newOdo) async {
+        final updated = motor.copyWith(odometer: newOdo, cycle: motor.cycle + 1);
+        ref.read(motorcycleProvider.notifier).updateMotorcycle(updated);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cycle diperbarui ke ${motor.cycle + 1}. Histori direset.'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          );
+        }
       },
     );
   }

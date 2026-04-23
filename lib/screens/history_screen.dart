@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -27,10 +27,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     // 1. Dapatkan daftar history riil dari Provider
     final allRecords = ref.watch(serviceRecordsProvider);
+    final activeMotorcycleIds = motorcycles.map((m) => m.id).toSet();
 
-    // Filter by selected motorcycle if any
+    // Filter by selected motorcycle if any, and ensure we only show active ones when "All" is selected
     final records = _selectedMotorcycleId == null
         ? allRecords
+              .where((r) => activeMotorcycleIds.contains(r.motorcycleId))
+              .toList()
         : allRecords
               .where((r) => r.motorcycleId == _selectedMotorcycleId)
               .toList();

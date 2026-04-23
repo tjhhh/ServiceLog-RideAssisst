@@ -8,6 +8,7 @@ import '../models/service_record.dart';
 import '../providers/motorcycle_provider.dart';
 import '../providers/service_interval_provider.dart';
 import '../providers/service_provider.dart';
+import '../widgets/odometer_update_sheet.dart';
 
 class MotorcycleDetailScreen extends ConsumerStatefulWidget {
   final Motorcycle motorcycle;
@@ -263,12 +264,13 @@ class _MotorcycleDetailScreenState
                 itemBuilder: (context, index) {
                   final interval = intervals[index];
 
-                  // Get specific records for this interval
+                  // Get specific records for this interval (filter by current cycle)
                   final specificRecords = motorRecords
                       .where(
                         (r) =>
                             r.serviceType.toLowerCase() ==
-                            interval.serviceItem.toLowerCase(),
+                                interval.serviceItem.toLowerCase() &&
+                            r.cycle == motor.cycle,
                       )
                       .toList();
                   specificRecords.sort(
@@ -434,63 +436,35 @@ class _MotorcycleDetailScreenState
     BuildContext context,
     Motorcycle motor,
   ) async {
-    final TextEditingController odometerController = TextEditingController(
-      text: motor.odometer.toString(),
-    );
-
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Update Odometer'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Update the current mileage of your motorcycle:'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: odometerController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Current Odometer',
-                  border: OutlineInputBorder(),
-                  suffixText: 'KM',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('CANCEL'),
+    await showOdometerUpdateSheet(
+      context,
+      motor,
+      onSaveKm: (newOdo) async {
+        final updated = motor.copyWith(odometer: newOdo);
+        ref.read(motorcycleProvider.notifier).updateMotorcycle(updated);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Odometer diperbarui ke $newOdo KM'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            ElevatedButton(
-              onPressed: () {
-                final newOdo = int.tryParse(odometerController.text);
-                if (newOdo != null && newOdo >= motor.odometer) {
-                  final updatedMotor = motor.copyWith(odometer: newOdo);
-                  ref
-                      .read(motorcycleProvider.notifier)
-                      .updateMotorcycle(updatedMotor);
-                  Navigator.pop(context);
-
-                  // Also update our state reference if using widget.motorcycle
-                  // Normally riverpod handles this if we watch it or we can just pop the route or let the UI handle it since we are reading from provider, but wait - the widget.motorcycle might be stale.
-                  // We should ideally read the motorcycle from provider in build.
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Invalid odometer reading. Must be greater than or equal to current.',
-                      ),
-                    ),
-                  );
-                }
-              },
-              child: const Text('UPDATE ODOMETER'),
+          );
+        }
+      },
+      onSaveCycle: (newOdo) async {
+        final updated = motor.copyWith(odometer: newOdo, cycle: motor.cycle + 1);
+        ref.read(motorcycleProvider.notifier).updateMotorcycle(updated);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cycle diperbarui ke ${motor.cycle + 1}. Histori servis direset.'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-          ],
-        );
+          );
+        }
       },
     );
   }
@@ -529,6 +503,7 @@ class _MotorcycleDetailScreenState
         date: DateTime.now(),
         cost: 0.0,
         notes: 'Recorded via interval reset',
+        cycle: motor.cycle,
       );
 
       await ref.read(serviceRecordsProvider.notifier).addRecord(newRecord);
@@ -580,6 +555,7 @@ class _MotorcycleDetailScreenState
           date: DateTime.now(),
           cost: 0.0,
           notes: 'Recorded via interval reset',
+          cycle: motor.cycle,
         );
         await ref.read(serviceRecordsProvider.notifier).addRecord(newRecord);
       }
