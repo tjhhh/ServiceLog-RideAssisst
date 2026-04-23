@@ -18,6 +18,15 @@ class FullHistoryScreen extends ConsumerStatefulWidget {
 
 class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
   String? _selectedMotorcycleId; // State untuk filter motor
+  String _searchQuery = '';
+  String _sortBy = 'Date (Newest)';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,13 +37,37 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
     final activeMotorcycleIds = motorcycles.map((m) => m.id).toSet();
 
     // Filter by selected motorcycle if any, and ensure we only show active ones when "All" is selected
-    final records = _selectedMotorcycleId == null
+    var records = _selectedMotorcycleId == null
         ? allRecords
               .where((r) => activeMotorcycleIds.contains(r.motorcycleId))
               .toList()
         : allRecords
               .where((r) => r.motorcycleId == _selectedMotorcycleId)
               .toList();
+
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      records = records.where((r) {
+        return r.serviceType.toLowerCase().contains(query) ||
+               r.notes.toLowerCase().contains(query) ||
+               (r.location != null && r.location!.toLowerCase().contains(query));
+      }).toList();
+    }
+
+    switch (_sortBy) {
+      case 'Date (Newest)':
+        records.sort((a, b) => b.date.compareTo(a.date));
+        break;
+      case 'Date (Oldest)':
+        records.sort((a, b) => a.date.compareTo(b.date));
+        break;
+      case 'Cost (Highest)':
+        records.sort((a, b) => b.cost.compareTo(a.cost));
+        break;
+      case 'Cost (Lowest)':
+        records.sort((a, b) => a.cost.compareTo(b.cost));
+        break;
+    }
 
     // 2. Hitung Total Pengeluaran
     final totalSpent = records.fold<double>(
@@ -47,7 +80,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
     ).format(totalSpent);
 
     // 3. Kalkulasi Kapan Servis Terakhir
-    String lastServiceAgo = '--';
+    String lastServiceAgo = 'N/A';
     String lastServiceUnit = '';
     if (records.isNotEmpty) {
       final latestRecord = records.reduce(
@@ -57,7 +90,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
       if (difference == 0) {
         lastServiceAgo = 'Today';
       } else {
-        lastServiceAgo = '${difference}d';
+        lastServiceAgo = '${difference.abs()}d';
         lastServiceUnit = 'ago';
       }
     }
@@ -330,8 +363,14 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
               ],
               border: Border.all(color: Colors.grey.shade100, width: 1),
             ),
-            child: const TextField(
-              decoration: InputDecoration(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+              decoration: const InputDecoration(
                 icon: Icon(Icons.search, color: Colors.grey, size: 20),
                 hintText: 'Search service title, parts, or notes...',
                 hintStyle: TextStyle(
@@ -346,24 +385,59 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
+        PopupMenuButton<String>(
+          initialValue: _sortBy,
+          tooltip: 'Sort Options',
+          elevation: 4,
+          shadowColor: Colors.black12,
+          surfaceTintColor: Colors.white,
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-            border: Border.all(color: Colors.grey.shade100, width: 1),
           ),
-          child: Icon(
-            Icons.tune_rounded, // or filter_list, but tune_rounded is modern
-            color: Theme.of(context).colorScheme.primary,
-            size: 20,
+          position: PopupMenuPosition.under,
+          onSelected: (value) {
+            setState(() {
+              _sortBy = value;
+            });
+          },
+          itemBuilder: (context) => [
+            const PopupMenuItem<String>(
+              value: 'Date (Newest)',
+              child: Text('Date (Newest)'),
+            ),
+            const PopupMenuItem<String>(
+              value: 'Date (Oldest)',
+              child: Text('Date (Oldest)'),
+            ),
+            const PopupMenuItem<String>(
+              value: 'Cost (Highest)',
+              child: Text('Cost (Highest)'),
+            ),
+            const PopupMenuItem<String>(
+              value: 'Cost (Lowest)',
+              child: Text('Cost (Lowest)'),
+            ),
+          ],
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(color: Colors.grey.shade100, width: 1),
+            ),
+            child: Icon(
+              Icons.tune_rounded,
+              color: Theme.of(context).colorScheme.primary,
+              size: 20,
+            ),
           ),
         ),
       ],
