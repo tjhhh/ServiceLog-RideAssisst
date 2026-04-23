@@ -112,17 +112,30 @@ class _MainLayoutState extends State<MainLayout> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      floatingActionButton: _CenterAddFAB(primaryColor: primary),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _CustomBottomNavBar(
-        currentIndex: _currentIndex,
-        items: _navItems,
-        primaryColor: primary,
-        onTap: (i) => setState(() => _currentIndex = i),
-      ),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: const Color(0xFFF1F5F9),
+          body: IndexedStack(index: _currentIndex, children: _screens),
+          bottomNavigationBar: _CustomBottomNavBar(
+            currentIndex: _currentIndex,
+            items: _navItems,
+            primaryColor: primary,
+            onTap: (i) => setState(() => _currentIndex = i),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: MediaQuery.of(context).padding.bottom + 30, // 62 (nav height) - 32 (half fab height)
+          child: SafeArea(
+            bottom: false,
+            child: Center(
+              child: _CenterAddFAB(primaryColor: primary),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
