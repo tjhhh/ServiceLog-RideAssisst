@@ -159,7 +159,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Kalkulasi Attention & Health secara dinamis berdasarkan interval part
     final intervals = getDefaultIntervals(activeMotor.id!, activeMotor.type);
     List<AttentionItem> attentionItems = [];
-    int lowestHealth = 100;
+    
+    int totalComponents = intervals.length;
+    int overdueComponents = 0;
 
     for (var interval in intervals) {
       // Cari rekam medis servis yang sesuai/mengandung kata ini
@@ -175,7 +177,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
               )
               .toList()
-            ..sort((a, b) => b.mileage.compareTo(a.mileage)); // Sort terbaru
+            ..sort((a, b) {
+              int aFullOdo = (a.cycle * 100000) + a.mileage;
+              int bFullOdo = (b.cycle * 100000) + b.mileage;
+              if (bFullOdo != aFullOdo) return bFullOdo.compareTo(aFullOdo);
+              return b.date.compareTo(a.date);
+            }); // Sort terbaru berdasarkan total jarak termutakhir
 
       int lastReplacedOdo = 0;
       DateTime? lastReplacedDate;
@@ -196,16 +203,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       if (kmSinceLastService < 0) kmSinceLastService = 0;
 
-      // Hitung presentase kesehatan spesifik part ini
-      int partHealth =
-          100 - (kmSinceLastService / interval.intervalKm * 100).toInt();
-      if (partHealth < 0) partHealth = 0;
-      if (partHealth > 100) partHealth = 100;
-
-      if (partHealth < lowestHealth)
-        lowestHealth =
-            partHealth; // Kesehatan global ngikut part yg paling kritis
-
       final attentionItem = AttentionItem(
         serviceName: interval.serviceItem,
         intervalKm: interval.intervalKm,
@@ -214,6 +211,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         lastReplacedDate: lastReplacedDate,
         lastReplacedCycle: lastReplacedCycle,
       );
+
+      if (attentionItem.isCritical) {
+        overdueComponents++;
+      }
 
       if (attentionItem.isWarning || attentionItem.isCritical) {
         attentionItems.add(attentionItem);
@@ -225,12 +226,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       (a, b) => b.kmSinceLastService.compareTo(a.kmSinceLastService),
     );
 
+    // Hitung persentase kesehatan motor secara keseluruhan
+    int calculatedHealthPercentage = 100;
+    if (totalComponents > 0) {
+      calculatedHealthPercentage = 100 - ((overdueComponents / totalComponents) * 100).toInt();
+    }
+
     String healthStatus = 'OPTIMAL';
-    if (lowestHealth <= 20) {
+    if (calculatedHealthPercentage <= 20) {
       healthStatus = 'KRITIS';
-    } else if (lowestHealth <= 50) {
+    } else if (calculatedHealthPercentage <= 60) {
       healthStatus = 'PERLU PERHATIAN';
-    } else if (lowestHealth <= 80) {
+    } else if (calculatedHealthPercentage <= 80) {
       healthStatus = 'BAIK';
     }
 
@@ -252,7 +259,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 24),
             _buildPaginationDots(motorcycles),
             const SizedBox(height: 32),
-            _buildStatsSection(activeMotor, lowestHealth, healthStatus),
+            _buildStatsSection(activeMotor, calculatedHealthPercentage, healthStatus),
             const SizedBox(height: 24),
             AutoTrackCard(activeMotor: activeMotor),
             if (attentionItems.isNotEmpty) ...[
@@ -794,7 +801,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Color _getHealthColor(int percentage) {
     if (percentage <= 20) return Colors.deepOrange;
-    if (percentage <= 50) return Colors.orange;
+    if (percentage <= 60) return Colors.orange;
     if (percentage <= 80) return Colors.blue;
     return Theme.of(context).colorScheme.primary;
   }
