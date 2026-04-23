@@ -7,6 +7,7 @@ import '../models/service_record.dart';
 import '../models/motorcycle.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
+import '../widgets/history/service_detail_sheet.dart';
 import 'add_service_screen.dart';
 
 class FullHistoryScreen extends ConsumerStatefulWidget {
@@ -508,6 +509,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           imageUrl: record.receiptImagePath, // ini path lokal
           isLast: isLast,
           date: DateFormat('MMM dd, yyyy').format(record.date),
+          onTap: () => showServiceDetailSheet(context, record),
         );
       }).toList(),
     );
@@ -525,6 +527,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
     String? location,
     String? imageUrl,
     bool isLast = false,
+    VoidCallback? onTap,
   }) {
     return IntrinsicHeight(
       child: Row(
@@ -558,23 +561,27 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           const SizedBox(width: 16),
           // Content Card
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: InkWell(
+                onTap: onTap,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade100, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
+                child: Ink(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey.shade100, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -702,6 +709,8 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                   ],
                 ],
               ),
+            ),
+            ),
             ),
           ),
         ],

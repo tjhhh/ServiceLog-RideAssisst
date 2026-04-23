@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/service_record.dart';
+import 'service_detail_sheet.dart';
 
 class HistoryTimeline extends StatelessWidget {
   final List<ServiceRecord> records;
@@ -72,6 +73,7 @@ class HistoryTimeline extends StatelessWidget {
           imageUrl: record.receiptImagePath,
           isLast: isLast,
           date: DateFormat('MMM dd, yyyy').format(record.date),
+          onTap: () => showServiceDetailSheet(context, record),
         );
       }).toList(),
     );
@@ -90,6 +92,7 @@ class _TimelineItemCard extends StatelessWidget {
   final String? location;
   final String? imageUrl;
   final bool isLast;
+  final VoidCallback? onTap;
 
   const _TimelineItemCard({
     required this.type,
@@ -103,6 +106,7 @@ class _TimelineItemCard extends StatelessWidget {
     this.location,
     this.imageUrl,
     this.isLast = false,
+    this.onTap,
   });
 
   @override
@@ -139,23 +143,27 @@ class _TimelineItemCard extends StatelessWidget {
           const SizedBox(width: 16),
           // Content Card
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: InkWell(
+                onTap: onTap,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.grey.shade100, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
+                child: Ink(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: Colors.grey.shade100, width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -288,6 +296,8 @@ class _TimelineItemCard extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+            ),
             ),
           ),
         ],
