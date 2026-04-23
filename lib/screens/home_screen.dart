@@ -16,6 +16,8 @@ import '../widgets/odometer_update_sheet.dart';
 import 'add_motorcycle_screen.dart';
 import 'motorcycle_detail_screen.dart';
 import 'account_screen.dart';
+import '../widgets/auto_track_card.dart';
+import '../providers/tracking_provider.dart';
 
 class AttentionItem {
   final String serviceName;
@@ -243,11 +245,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             _buildWelcomeHeader(),
             const SizedBox(height: 32),
-            _buildMotorcycleCarousel(motorcycles),
+            _buildMotorcycleCarousel(
+              motorcycles,
+              ref.watch(trackingProvider).isTracking,
+            ),
             const SizedBox(height: 24),
             _buildPaginationDots(motorcycles),
             const SizedBox(height: 32),
             _buildStatsSection(activeMotor, lowestHealth, healthStatus),
+            const SizedBox(height: 24),
+            AutoTrackCard(activeMotor: activeMotor),
             if (attentionItems.isNotEmpty) ...[
               const SizedBox(height: 24),
               _buildAttentionRequired(activeMotor, attentionItems),
@@ -304,7 +311,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Icons.notifications_outlined,
                   color: Color(0xFF475569),
                 ),
-                onPressed: () => _showNotificationBottomSheet(context, notifications),
+                onPressed: () =>
+                    _showNotificationBottomSheet(context, notifications),
               ),
               if (notifications.isNotEmpty)
                 Positioned(
@@ -342,7 +350,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       File(
                         FirebaseAuth.instance.currentUser!.photoURL!,
                       ).existsSync()
-                  ? FileImage(File(FirebaseAuth.instance.currentUser!.photoURL!))
+                  ? FileImage(
+                          File(FirebaseAuth.instance.currentUser!.photoURL!),
+                        )
                         as ImageProvider
                   : null,
               child:
@@ -385,27 +395,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               letterSpacing: -1.0,
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            "Pantau performa dan jadwalkan perawatan motormu agar selalu dalam kondisi prima.",
-            style: TextStyle(
-              fontSize: 15,
-              color: Color(0xFF64748B),
-              height: 1.6,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+          const SizedBox(height: 4),
         ],
       ),
     );
   }
 
-  Widget _buildMotorcycleCarousel(List<Motorcycle> motorcycles) {
+  Widget _buildMotorcycleCarousel(
+    List<Motorcycle> motorcycles,
+    bool isTracking,
+  ) {
     return SizedBox(
       height: 280,
       child: PageView.builder(
         controller: _pageController,
-        physics: const BouncingScrollPhysics(),
+        physics: isTracking
+            ? const NeverScrollableScrollPhysics()
+            : const BouncingScrollPhysics(),
         onPageChanged: (index) {
           setState(() {
             _currentMotorIndex = index;
@@ -580,7 +586,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Expanded(
               child: _buildInfoCard(
                 icon: Icons.speed,
-                title: motor.cycle > 0 ? 'ODO (CYCLE ${motor.cycle})' : 'TOTAL ODOMETER',
+                title: motor.cycle > 0
+                    ? 'ODO (CYCLE ${motor.cycle})'
+                    : 'TOTAL ODOMETER',
                 value: '${motor.odometer}',
                 unit: 'KM',
                 onTap: () => _showUpdateOdometerDialog(context, motor),
@@ -1144,21 +1152,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             SnackBar(
               content: Text('Odometer diperbarui ke $newOdo KM'),
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
       },
       onSaveCycle: (newOdo) async {
-        final updated = motor.copyWith(odometer: newOdo, cycle: motor.cycle + 1);
+        final updated = motor.copyWith(
+          odometer: newOdo,
+          cycle: motor.cycle + 1,
+        );
         ref.read(motorcycleProvider.notifier).updateMotorcycle(updated);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Cycle diperbarui ke ${motor.cycle + 1}. Histori direset.'),
+              content: Text(
+                'Cycle diperbarui ke ${motor.cycle + 1}. Histori direset.',
+              ),
               backgroundColor: Colors.orange,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
         }
@@ -1166,32 +1183,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  void _showNotificationBottomSheet(BuildContext context, List<NotificationItem> notifications) {
+  void _showNotificationBottomSheet(
+    BuildContext context,
+    List<NotificationItem> notifications,
+  ) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
       ),
       backgroundColor: Colors.white,
       builder: (context) {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Notifikasi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text(
+                'Notifikasi',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               if (notifications.isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(32.0),
-                  child: Text('Semua beres! Tidak ada notifikasi perawatan saat ini.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey)),
+                  child: Text(
+                    'Semua beres! Tidak ada notifikasi perawatan saat ini.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 )
               else
                 Expanded(
                   child: ListView.separated(
                     itemCount: notifications.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1),
+                    separatorBuilder: (context, index) =>
+                        const Divider(height: 1),
                     itemBuilder: (context, index) {
                       final item = notifications[index];
                       Color bgColor;
@@ -1203,7 +1236,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         case NotificationType.Critical:
                           bgColor = Colors.red.shade50;
                           iconColor = Colors.red;
-                          icon = item.type == NotificationType.OdometerLimit ? Icons.speed : Icons.warning_amber_rounded;
+                          icon = item.type == NotificationType.OdometerLimit
+                              ? Icons.speed
+                              : Icons.warning_amber_rounded;
                           break;
                         case NotificationType.Warning:
                           bgColor = Colors.orange.shade50;
@@ -1211,11 +1246,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           icon = Icons.info_outline_rounded;
                           break;
                       }
-                      
-                      final dateLabel = DateFormat('dd MMM yyyy').format(item.date);
-                      
+
+                      final dateLabel = DateFormat(
+                        'dd MMM yyyy',
+                      ).format(item.date);
+
                       return Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 8,
+                        ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -1229,23 +1269,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           item.title,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
                                         ),
                                       ),
                                       Text(
                                         dateLabel,
-                                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                        style: TextStyle(
+                                          color: Colors.grey.shade500,
+                                          fontSize: 11,
+                                        ),
                                       ),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.indigo.shade50,
                                       borderRadius: BorderRadius.circular(4),
@@ -1262,7 +1312,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   const SizedBox(height: 6),
                                   Text(
                                     item.description,
-                                    style: const TextStyle(fontSize: 12, height: 1.4),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      height: 1.4,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1276,7 +1329,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         );
-      }
+      },
     );
   }
 }

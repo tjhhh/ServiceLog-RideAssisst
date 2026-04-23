@@ -49,7 +49,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     ).format(totalSpent);
 
     // 3. Kalkulasi Kapan Servis Terakhir
-    String lastServiceAgo = '--';
+    String lastServiceAgo = 'N/A';
     String lastServiceUnit = '';
     if (records.isNotEmpty) {
       final latestRecord = records.reduce(
@@ -59,7 +59,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       if (difference == 0) {
         lastServiceAgo = 'Today';
       } else {
-        lastServiceAgo = '${difference}d';
+        lastServiceAgo = '${difference.abs()}d';
         lastServiceUnit = 'ago';
       }
     }
