@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
 import 'service_interval_screen.dart';
 import 'account_screen.dart';
+import 'manage_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -59,9 +60,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: 'Motorcycles',
             subtitle: 'Manage your garage',
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Go to Manage tab to edit motorcycles'),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ManageScreen(),
                 ),
               );
             },
