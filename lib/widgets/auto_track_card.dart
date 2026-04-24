@@ -276,7 +276,9 @@ class _AutoTrackCardState extends ConsumerState<AutoTrackCard>
                       ),
                     ),
                     Text(
-                      '${km.toStringAsFixed(1)} KM',
+                      trackingState.trackedDistanceMeters < 1000 
+                          ? '${trackingState.trackedDistanceMeters.toInt()} Meter'
+                          : '${km.toStringAsFixed(1)} KM',
                       style: const TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.w900,

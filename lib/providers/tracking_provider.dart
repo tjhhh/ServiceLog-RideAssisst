@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
-
 class TrackingState {
   final bool isTracking;
   final double trackedDistanceMeters; // in meters
@@ -58,11 +58,37 @@ class TrackingNotifier extends Notifier<TrackingState> {
         return 'Izin akses lokasi diblokir permanen. Harap buka pengaturan aplikasi dan izinkan manual.';
       }
 
-      // Set LocationSettings to high accuracy and a minimum distance of 5 meters
-      const LocationSettings locationSettings = LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 5,
-      );
+      // Set LocationSettings for background & foreground
+      late LocationSettings locationSettings;
+
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        locationSettings = AndroidSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 3,
+          forceLocationManager: true,
+          intervalDuration: const Duration(seconds: 5),
+          foregroundNotificationConfig: const ForegroundNotificationConfig(
+            notificationText:
+                "RideAssist sedang melacak perjalanan kamu untuk update Odometer.",
+            notificationTitle: "Auto Track Aktif",
+            enableWakeLock: true,
+          ),
+        );
+      } else if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        locationSettings = AppleSettings(
+          accuracy: LocationAccuracy.high,
+          activityType: ActivityType.automotiveNavigation,
+          distanceFilter: 3,
+          pauseLocationUpdatesAutomatically: true,
+          showBackgroundLocationIndicator: true,
+        );
+      } else {
+        locationSettings = const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 3,
+        );
+      }
 
     // Get an initial position
     _lastPosition = await Geolocator.getCurrentPosition(

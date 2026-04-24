@@ -51,5 +51,9 @@
 	<string>This app needs access to location when open to automatically track your odometer distance.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs access to location when in the background to automatically track your odometer distance.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 </dict>
 </plist>
