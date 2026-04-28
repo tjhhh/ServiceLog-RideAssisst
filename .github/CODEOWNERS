@@ -1,0 +1,19 @@
+# CODEOWNERS for RideAssist
+# Replace the placeholders below with actual GitHub usernames or teams.
+# Example: /lib/ @tjhhh
+
+
+# Default owner for everything (uncomment and replace to enable):
+# * @tjhhh
+
+# Owners by area
+/lib/ @tjhhh
+/android/ @tjhhh
+/ios/ @tjhhh
+/macos/ @tjhhh
+/web/ @tjhhh
+/.github/ @tjhhh
+
+# You can add more granular rules, for example:
+# /lib/screens/ @tjhhh
+# /lib/services/ @tjhhh

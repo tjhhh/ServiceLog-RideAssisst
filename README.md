@@ -23,6 +23,10 @@
 *   **Styling**: Material 3, Custom Glassmorphism UI
 *   **Plugin Penting**: `image_picker`, `path_provider`, `intl`
 
+## 📚 Dokumentasi Teknis
+
+*   [Autotrack Odometer Guide](notes/AUTOTRACK_ODOMETER_GUIDE.md) - alur implementasi GPS tracking, filter jarak, penyimpanan trip, dan cara porting ke project lain.
+
 ## 🚀 Memulai (Getting Started)
 
 Ikuti langkah-langkah ini untuk menjalankan RideAssist di mesin lokal Anda:
