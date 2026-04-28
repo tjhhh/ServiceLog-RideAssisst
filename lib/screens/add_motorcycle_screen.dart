@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../models/motorcycle.dart';
 import '../providers/motorcycle_provider.dart';
@@ -18,6 +19,7 @@ class AddMotorcycleScreen extends ConsumerStatefulWidget {
 }
 
 class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _brandController = TextEditingController();
   final _nameController = TextEditingController();
   final _odometerController = TextEditingController();
@@ -86,12 +88,7 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
   }
 
   Future<void> _saveMotorcycle() async {
-    if (_brandController.text.trim().isEmpty ||
-        _nameController.text.trim().isEmpty ||
-        _odometerController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill out all required fields!')),
-      );
+    if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
 
@@ -100,7 +97,7 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
     });
 
     String imageUrl =
-        'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=800&auto=format&fit=crop'; // Default placeholder
+        'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=800&auto=format&fit=crop';
     if (_selectedImage != null) {
       final savedPath = await _saveImageLocally(_selectedImage!);
       if (savedPath != null) {
@@ -111,14 +108,16 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
     final newMotorcycle = Motorcycle(
       brand: _brandController.text.trim(),
       name: _nameController.text.trim(),
-      type: _selectedType, // assign the selected type
+      type: _selectedType,
       licensePlate: _licensePlateController.text.trim().isNotEmpty
-          ? _licensePlateController.text.trim().toUpperCase()
+          ? _normalizeLicensePlate(_licensePlateController.text)
           : null,
-      year: int.tryParse(_yearController.text.trim()),
+      year: _yearController.text.trim().isEmpty
+          ? null
+          : int.parse(_yearController.text.trim()),
       imageUrl: imageUrl,
-      odometer: int.tryParse(_odometerController.text.trim()) ?? 0,
-      healthPercentage: 100, // Default for new
+      odometer: int.parse(_odometerController.text.trim()),
+      healthPercentage: 100,
       healthStatus: 'OPTIMAL',
       nextService: 'General Inspection',
     );
@@ -134,6 +133,50 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
       );
       Navigator.pop(context);
     }
+  }
+
+  String? _validateOdometer(String? value) {
+    final trimmedValue = value?.trim() ?? '';
+    if (trimmedValue.isEmpty) {
+      return 'Current odometer wajib diisi';
+    }
+
+    if (!RegExp(r'^\d+$').hasMatch(trimmedValue)) {
+      return 'Current odometer hanya boleh berisi angka';
+    }
+
+    return null;
+  }
+
+  String? _validateLicensePlate(String? value) {
+    final trimmedValue = value?.trim() ?? '';
+    if (trimmedValue.isEmpty) {
+      return null;
+    }
+
+    final normalizedValue = _normalizeLicensePlate(trimmedValue);
+    if (!RegExp(r'^[A-Z]{1,2} \d{1,4} [A-Z]{2,3}$').hasMatch(normalizedValue)) {
+      return 'Format plat: H 1234 ABC / HH 1 AB / HH 123 ABC';
+    }
+
+    return null;
+  }
+
+  String? _validateYear(String? value) {
+    final trimmedValue = value?.trim() ?? '';
+    if (trimmedValue.isEmpty) {
+      return null;
+    }
+
+    if (!RegExp(r'^\d+$').hasMatch(trimmedValue)) {
+      return 'Year hanya boleh berisi angka';
+    }
+
+    return null;
+  }
+
+  String _normalizeLicensePlate(String value) {
+    return value.trim().toUpperCase().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   @override
@@ -159,125 +202,143 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 16.0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: GestureDetector(
-                      onTap: _pickImage,
-                      child: Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: Colors.indigo.shade50,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.indigo.shade200,
-                            width: 2,
+          : Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 16.0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade50,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.indigo.shade200,
+                              width: 2,
+                            ),
+                            image: _selectedImage != null
+                                ? DecorationImage(
+                                    image: FileImage(_selectedImage!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                           ),
-                          image: _selectedImage != null
-                              ? DecorationImage(
-                                  image: FileImage(_selectedImage!),
-                                  fit: BoxFit.cover,
+                          child: _selectedImage == null
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.camera_alt,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Add Photo',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ],
                                 )
                               : null,
                         ),
-                        child: _selectedImage == null
-                            ? Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.camera_alt,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.primary,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    'Add Photo',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : null,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildInputField(
-                    label: 'Brand',
-                    hintText: 'e.g. Honda, Yamaha, Kawasaki',
-                    controller: _brandController,
-                  ),
-                  const SizedBox(height: 24),
-                  _buildInputField(
-                    label: 'Model',
-                    hintText: 'e.g. CB650R, MT-07',
-                    controller: _nameController,
-                  ),
-                  const SizedBox(height: 24),
-                  _buildTypeDropdown(),
-                  const SizedBox(height: 24),
-                  _buildInputField(
-                    label: 'Current Odometer (KM)',
-                    hintText: 'e.g. 1500',
-                    controller: _odometerController,
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildInputField(
-                          label: 'License Plate (Opsional)',
-                          hintText: 'e.g. B 1234 ABC',
-                          controller: _licensePlateController,
+                    const SizedBox(height: 32),
+                    _buildInputField(
+                      label: 'Brand',
+                      hintText: 'e.g. Honda, Yamaha, Kawasaki',
+                      controller: _brandController,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildInputField(
+                      label: 'Model',
+                      hintText: 'e.g. CB650R, MT-07',
+                      controller: _nameController,
+                    ),
+                    const SizedBox(height: 24),
+                    _buildTypeDropdown(),
+                    const SizedBox(height: 24),
+                    _buildInputField(
+                      label: 'Current Odometer (KM)',
+                      hintText: 'e.g. 1500',
+                      controller: _odometerController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
+                      validator: _validateOdometer,
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildInputField(
+                            label: 'License Plate (Opsional)',
+                            hintText: 'e.g. B 1234 ABC',
+                            controller: _licensePlateController,
+                            textCapitalization: TextCapitalization.characters,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[a-zA-Z0-9 ]'),
+                              ),
+                            ],
+                            validator: _validateLicensePlate,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildInputField(
-                          label: 'Year (Opsional)',
-                          hintText: 'e.g. 2021',
-                          controller: _yearController,
-                          keyboardType: TextInputType.number,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildInputField(
+                            label: 'Year (Opsional)',
+                            hintText: 'e.g. 2021',
+                            controller: _yearController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            validator: _validateYear,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _saveMotorcycle,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                      ],
+                    ),
+                    const SizedBox(height: 40),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: _saveMotorcycle,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
                         ),
-                        elevation: 0,
-                      ),
-                      child: const Text(
-                        'Save Motorcycle',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        child: const Text(
+                          'Save Motorcycle',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 40),
-                ],
+                    const SizedBox(height: 40),
+                  ],
+                ),
               ),
             ),
     );
@@ -312,7 +373,7 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
                 return DropdownMenuItem(
                   value: type,
                   child: Text(
-                    type[0].toUpperCase() + type.substring(1), // Capitalize
+                    type[0].toUpperCase() + type.substring(1),
                     style: const TextStyle(fontSize: 14),
                   ),
                 );
@@ -336,6 +397,9 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
     required String hintText,
     required TextEditingController controller,
     TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,9 +419,13 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
             color: Colors.indigo.shade50.withOpacity(0.5),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: TextField(
+          child: TextFormField(
             controller: controller,
             keyboardType: keyboardType,
+            textCapitalization: textCapitalization,
+            inputFormatters: inputFormatters,
+            validator: validator,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             decoration: InputDecoration(
               hintText: hintText,
               hintStyle: const TextStyle(color: Colors.black38, fontSize: 16),
