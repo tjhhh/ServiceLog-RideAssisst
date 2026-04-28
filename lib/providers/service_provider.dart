@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/service_record.dart';
 import '../services/firestore_service.dart';
 import 'motorcycle_provider.dart';
+import '../services/auth_service.dart';
 
 // Di Riverpod terbaru, `Notifier` disarankan alih-alih `StateNotifier`
 final serviceRecordsProvider =
@@ -10,19 +13,42 @@ final serviceRecordsProvider =
     });
 
 class ServiceNotifier extends Notifier<List<ServiceRecord>> {
+  final _auth = FirebaseAuth.instance;
+
   @override
   List<ServiceRecord> build() {
-    _loadRecords();
+    final authState = ref.watch(authStateProvider);
+    final user = authState.maybeWhen(data: (user) => user, orElse: () => null);
+
+    if (user == null) {
+      return [];
+    }
+
+    _loadRecords(user.uid);
     return [];
   }
 
   // Memuat data dari Firebase Firestore
-  Future<void> _loadRecords() async {
+  Future<void> _loadRecords([String? userId]) async {
+    final expectedUid = userId ?? _auth.currentUser?.uid;
+    if (expectedUid == null) {
+      state = [];
+      return;
+    }
+
     try {
       final records = await FirestoreService.instance.getAllServiceRecords();
+      if (_auth.currentUser?.uid != expectedUid) {
+        return;
+      }
+
       state = records;
     } catch (e) {
-      print('Error loading service records: $e');
+      if (_auth.currentUser?.uid != expectedUid) {
+        return;
+      }
+
+      debugPrint('Error loading service records: $e');
       // If error, set empty
       state = [];
     }
