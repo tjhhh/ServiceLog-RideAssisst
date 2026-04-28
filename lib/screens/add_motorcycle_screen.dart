@@ -276,9 +276,7 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
                       hintText: 'e.g. 1500',
                       controller: _odometerController,
                       keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       validator: _validateOdometer,
                     ),
                     const SizedBox(height: 24),
@@ -320,7 +318,9 @@ class _AddMotorcycleScreenState extends ConsumerState<AddMotorcycleScreen> {
                       child: ElevatedButton(
                         onPressed: _saveMotorcycle,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
