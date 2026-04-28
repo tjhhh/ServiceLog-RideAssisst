@@ -21,20 +21,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
     super.dispose();
   }
 
   void _showTopNotification(String message, {bool isError = true}) {
-    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-    ScaffoldMessenger.of(context).showMaterialBanner(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(
       MaterialBanner(
         content: Text(message, style: const TextStyle(color: Colors.white)),
         backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
         actions: [
           TextButton(
             onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              messenger.hideCurrentMaterialBanner();
             },
             child: const Text('TUTUP', style: TextStyle(color: Colors.white)),
           ),
@@ -42,7 +42,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
     Future.delayed(const Duration(seconds: 4), () {
-      if (mounted) ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+      messenger.hideCurrentMaterialBanner();
     });
   }
 

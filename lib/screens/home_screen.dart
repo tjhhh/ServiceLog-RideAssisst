@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'dart:io';
@@ -6,10 +7,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/motorcycle.dart';
 import '../models/service_interval.dart';
-import '../models/service_record.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
-import '../providers/settings_provider.dart';
 import '../providers/notification_provider.dart';
 import '../models/notification_item.dart';
 import '../widgets/odometer_update_sheet.dart';
@@ -18,6 +17,40 @@ import 'motorcycle_detail_screen.dart';
 import 'account_screen.dart';
 import '../widgets/auto_track_card.dart';
 import '../providers/tracking_provider.dart';
+import 'trip_history_screen.dart';
+import 'log_viewer_screen.dart';
+
+class _SecretLogLogo extends StatelessWidget {
+  final VoidCallback onActivated;
+
+  const _SecretLogLogo({required this.onActivated});
+
+  @override
+  Widget build(BuildContext context) {
+    return RawGestureDetector(
+      gestures: {
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+              () => LongPressGestureRecognizer(
+                duration: const Duration(milliseconds: 2000),
+              ),
+              (LongPressGestureRecognizer instance) {
+                instance.onLongPress = onActivated;
+              },
+            ),
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Image.asset('lib/assets/logo_ra.png', width: 24, height: 24),
+      ),
+    );
+  }
+}
 
 class AttentionItem {
   final String serviceName;
@@ -62,7 +95,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final motorcycles = ref.watch(motorcycleProvider);
     final allRecords = ref.watch(serviceRecordsProvider);
-    final settings = ref.watch(settingsProvider);
     final notifications = ref.watch(notificationProvider);
 
     if (motorcycles.isEmpty) {
@@ -159,7 +191,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Kalkulasi Attention & Health secara dinamis berdasarkan interval part
     final intervals = getDefaultIntervals(activeMotor.id!, activeMotor.type);
     List<AttentionItem> attentionItems = [];
-    
+
     int totalComponents = intervals.length;
     int overdueComponents = 0;
 
@@ -229,7 +261,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // Hitung persentase kesehatan motor secara keseluruhan
     int calculatedHealthPercentage = 100;
     if (totalComponents > 0) {
-      calculatedHealthPercentage = 100 - ((overdueComponents / totalComponents) * 100).toInt();
+      calculatedHealthPercentage =
+          100 - ((overdueComponents / totalComponents) * 100).toInt();
     }
 
     String healthStatus = 'OPTIMAL';
@@ -259,9 +292,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 24),
             _buildPaginationDots(motorcycles),
             const SizedBox(height: 32),
-            _buildStatsSection(activeMotor, calculatedHealthPercentage, healthStatus),
+            _buildStatsSection(
+              activeMotor,
+              calculatedHealthPercentage,
+              healthStatus,
+            ),
             const SizedBox(height: 24),
             AutoTrackCard(activeMotor: activeMotor),
+            const SizedBox(height: 12),
+            _buildTripHistoryShortcut(activeMotor),
             if (attentionItems.isNotEmpty) ...[
               const SizedBox(height: 24),
               _buildAttentionRequired(activeMotor, attentionItems),
@@ -283,13 +322,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       title: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Image.asset('lib/assets/logo_ra.png', width: 24, height: 24),
+          _SecretLogLogo(
+            onActivated: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const LogViewerScreen(),
+                ),
+              );
+            },
           ),
           const SizedBox(width: 12),
           const Text(
@@ -806,6 +847,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Theme.of(context).colorScheme.primary;
   }
 
+  Widget _buildTripHistoryShortcut(Motorcycle motor) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TripHistoryScreen(filterMotorcycle: motor),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0F172A).withOpacity(0.03),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.indigo.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.route_outlined,
+                  color: Colors.indigo,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Riwayat Perjalanan GPS',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    Text(
+                      'Lihat semua trip yang telah tersimpan',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAttentionRequired(
     Motorcycle motor,
     List<AttentionItem> attentionItems,
@@ -860,7 +968,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: Text(
@@ -870,36 +978,49 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF0F172A),
                           ),
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        '${item.kmSinceLastService} / ${item.intervalKm} KM',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: item.isCritical
-                              ? Colors.red
-                              : Colors.orange.shade700,
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          '${item.kmSinceLastService} / ${item.intervalKm} KM',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: item.isCritical
+                                ? Colors.red
+                                : Colors.orange.shade700,
+                          ),
+                          textAlign: TextAlign.right,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.history,
-                        size: 14,
-                        color: Colors.grey.shade600,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1.5),
+                        child: Icon(
+                          Icons.history,
+                          size: 13,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        'Terakhir diganti: $dateLabel (Odo: ${item.lastReplacedOdo} KM${item.lastReplacedCycle > 0 ? ' - Cycle ${item.lastReplacedCycle}' : ''})',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                      Expanded(
+                        child: Text(
+                          'Terakhir diganti: $dateLabel (Odo: ${item.lastReplacedOdo} KM${item.lastReplacedCycle > 0 ? ' - Cycle ${item.lastReplacedCycle}' : ''})',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            height: 1.4,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
