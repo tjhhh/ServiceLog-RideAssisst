@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
 import 'dart:ui';
+import 'package:image_picker/image_picker.dart';
+import 'package:image_cropper/image_cropper.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 import '../providers/motorcycle_provider.dart';
 import '../providers/service_provider.dart';
@@ -45,9 +49,6 @@ class ManageScreen extends ConsumerWidget {
                     .toList();
 
                 motorRecords.sort((a, b) => b.date.compareTo(a.date));
-                final latestRecord = motorRecords.isNotEmpty
-                    ? motorRecords.first
-                    : null;
 
                 ImageProvider imageProvider;
                 if (motor.imageUrl.startsWith('http')) {
@@ -103,10 +104,14 @@ class ManageScreen extends ConsumerWidget {
                                   child: Container(
                                     padding: const EdgeInsets.all(16.0),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.4),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.4,
+                                      ),
                                       border: Border(
                                         top: BorderSide(
-                                          color: Colors.white.withOpacity(0.2),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.2,
+                                          ),
                                           width: 1,
                                         ),
                                       ),
@@ -155,7 +160,9 @@ class ManageScreen extends ConsumerWidget {
                                                         ),
                                                     decoration: BoxDecoration(
                                                       color: Colors.white
-                                                          .withOpacity(0.2),
+                                                          .withValues(
+                                                            alpha: 0.2,
+                                                          ),
                                                       borderRadius:
                                                           BorderRadius.circular(
                                                             4,
@@ -178,6 +185,19 @@ class ManageScreen extends ConsumerWidget {
                                         ),
                                         Row(
                                           children: [
+                                            IconButton(
+                                              tooltip: 'Ubah foto motor',
+                                              icon: const Icon(
+                                                Icons.photo_library_outlined,
+                                                color: Colors.white,
+                                              ),
+                                              onPressed: () =>
+                                                  _showChangeImageSheet(
+                                                    context,
+                                                    ref,
+                                                    motor,
+                                                  ),
+                                            ),
                                             IconButton(
                                               icon: const Icon(
                                                 Icons.info_outline,
@@ -270,5 +290,279 @@ class ManageScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Future<void> _showChangeImageSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Motorcycle motor,
+  ) async {
+    File? selectedImage;
+    bool isSaving = false;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final messenger = ScaffoldMessenger.of(context);
+
+    Future<File?> pickAndCropImage() async {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      if (pickedFile == null) return null;
+
+      final croppedFile = await ImageCropper().cropImage(
+        sourcePath: pickedFile.path,
+        compressFormat: ImageCompressFormat.jpg,
+        compressQuality: 85,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: 'Crop Photo Motor',
+            toolbarColor: primaryColor,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.ratio16x9,
+            lockAspectRatio: false,
+          ),
+          IOSUiSettings(
+            title: 'Crop Photo Motor',
+            aspectRatioLockEnabled: false,
+            resetAspectRatioEnabled: false,
+          ),
+        ],
+      );
+
+      return croppedFile == null ? null : File(croppedFile.path);
+    }
+
+    Future<String?> saveImageLocally(File image) async {
+      try {
+        final directory = await getApplicationDocumentsDirectory();
+        final fileName =
+            'motor_${DateTime.now().millisecondsSinceEpoch}_${p.basename(image.path)}';
+        final savedImage = await image.copy('${directory.path}/$fileName');
+        return savedImage.path;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    if (!context.mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        ImageProvider displayImageProvider;
+        if (selectedImage != null) {
+          displayImageProvider = FileImage(selectedImage!);
+        } else if (motor.imageUrl.startsWith('http')) {
+          displayImageProvider = NetworkImage(motor.imageUrl);
+        } else if (File(motor.imageUrl).existsSync()) {
+          displayImageProvider = FileImage(File(motor.imageUrl));
+        } else {
+          displayImageProvider = const NetworkImage(
+            'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?q=80&w=800&auto=format&fit=crop',
+          );
+        }
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> chooseImage() async {
+              final image = await pickAndCropImage();
+              if (image != null) {
+                setSheetState(() {
+                  selectedImage = image;
+                });
+              }
+            }
+
+            Future<void> saveChanges() async {
+              if (selectedImage == null || isSaving) return;
+              setSheetState(() {
+                isSaving = true;
+              });
+
+              final savedPath = await saveImageLocally(selectedImage!);
+              if (!sheetContext.mounted) return;
+
+              if (savedPath == null) {
+                setSheetState(() {
+                  isSaving = false;
+                });
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Gagal menyimpan gambar motor.'),
+                  ),
+                );
+                return;
+              }
+
+              await ref
+                  .read(motorcycleProvider.notifier)
+                  .updateMotorcycle(motor.copyWith(imageUrl: savedPath));
+
+              if (!sheetContext.mounted) return;
+
+              Navigator.pop(sheetContext);
+
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Foto motor berhasil diperbarui.'),
+                ),
+              );
+            }
+
+            return SafeArea(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 24,
+                      offset: const Offset(0, -8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 44,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Ubah Foto Motor',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Pilih gambar baru, lalu simpan jika sudah cocok. Perubahan hanya berlaku setelah kamu menekan Simpan.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF64748B),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: displayImageProvider,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.45),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                selectedImage == null
+                                    ? 'Gambar saat ini'
+                                    : 'Pratinjau gambar baru',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: isSaving ? null : chooseImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Pilih Foto Baru'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: isSaving
+                                ? null
+                                : () => Navigator.pop(sheetContext),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text('Batal'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: selectedImage == null || isSaving
+                                ? null
+                                : saveChanges,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: isSaving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Simpan'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }

@@ -47,9 +47,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const AccountScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const AccountScreen()),
               );
             },
           ),
@@ -62,9 +60,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ManageScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const ManageScreen()),
               );
             },
           ),

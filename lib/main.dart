@@ -14,9 +14,12 @@ import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/add_service_screen.dart';
 import 'providers/settings_provider.dart';
+import 'services/app_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppLogger.instance.init();
+  AppLogger.instance.i('App Started.');
   await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -103,9 +106,21 @@ class _MainLayoutState extends State<MainLayout> {
 
   static const _navItems = [
     _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
-    _NavItem(icon: Icons.history_outlined, activeIcon: Icons.history, label: 'History'),
-    _NavItem(icon: Icons.motorcycle_outlined, activeIcon: Icons.motorcycle, label: 'Manage'),
-    _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
+    _NavItem(
+      icon: Icons.history_outlined,
+      activeIcon: Icons.history,
+      label: 'History',
+    ),
+    _NavItem(
+      icon: Icons.motorcycle_outlined,
+      activeIcon: Icons.motorcycle,
+      label: 'Manage',
+    ),
+    _NavItem(
+      icon: Icons.settings_outlined,
+      activeIcon: Icons.settings,
+      label: 'Settings',
+    ),
   ];
 
   @override
@@ -127,12 +142,12 @@ class _MainLayoutState extends State<MainLayout> {
         Positioned(
           left: 0,
           right: 0,
-          bottom: MediaQuery.of(context).padding.bottom + 30, // 62 (nav height) - 32 (half fab height)
+          bottom:
+              MediaQuery.of(context).padding.bottom +
+              30, // 62 (nav height) - 32 (half fab height)
           child: SafeArea(
             bottom: false,
-            child: Center(
-              child: _CenterAddFAB(primaryColor: primary),
-            ),
+            child: Center(child: _CenterAddFAB(primaryColor: primary)),
           ),
         ),
       ],
@@ -175,12 +190,14 @@ class _CenterAddFABState extends State<_CenterAddFAB>
       duration: const Duration(milliseconds: 100),
       reverseDuration: const Duration(milliseconds: 500),
     );
-    _scale = Tween<double>(begin: 1.0, end: 0.87).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
-    _shadow = Tween<double>(begin: 20.0, end: 6.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 0.87,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _shadow = Tween<double>(
+      begin: 20.0,
+      end: 6.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
@@ -232,10 +249,7 @@ class _CenterAddFABState extends State<_CenterAddFAB>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    primary,
-                    Color.lerp(primary, Colors.black, 0.18)!,
-                  ],
+                  colors: [primary, Color.lerp(primary, Colors.black, 0.18)!],
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -318,7 +332,7 @@ class _CustomBottomNavBar extends StatelessWidget {
             children: [
               // Left nav items
               ...leftItems.asMap().entries.map((e) {
-                final idx = e.key;         // 0 → Home, 1 → History
+                final idx = e.key; // 0 → Home, 1 → History
                 final item = e.value;
                 final isActive = currentIndex == idx;
                 return _NavButton(
@@ -334,7 +348,7 @@ class _CustomBottomNavBar extends StatelessWidget {
 
               // Right nav items
               ...rightItems.asMap().entries.map((e) {
-                final idx = e.key + 2;     // 2 → Manage, 3 → Settings
+                final idx = e.key + 2; // 2 → Manage, 3 → Settings
                 final item = e.value;
                 final isActive = currentIndex == idx;
                 return _NavButton(

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
-import 'login_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -22,20 +20,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
     super.dispose();
   }
 
   void _showTopNotification(String message, {bool isError = true}) {
-    ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
-    ScaffoldMessenger.of(context).showMaterialBanner(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentMaterialBanner();
+    messenger.showMaterialBanner(
       MaterialBanner(
         content: Text(message, style: const TextStyle(color: Colors.white)),
         backgroundColor: isError ? Colors.red.shade600 : Colors.green.shade600,
         actions: [
           TextButton(
             onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+              messenger.hideCurrentMaterialBanner();
             },
             child: const Text('TUTUP', style: TextStyle(color: Colors.white)),
           ),
@@ -43,7 +41,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
     );
     Future.delayed(const Duration(seconds: 4), () {
-      if (mounted) ScaffoldMessenger.of(context).hideCurrentMaterialBanner();
+      messenger.hideCurrentMaterialBanner();
     });
   }
 
