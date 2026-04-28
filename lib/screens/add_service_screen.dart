@@ -130,6 +130,9 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     final effectiveServiceType = _selectedServiceType == '+ Other'
         ? _customServiceTypeController.text.trim()
         : _selectedServiceType;
+    final location = _locationController.text.trim();
+    final customServiceType = _customServiceTypeController.text.trim();
+    final customInterval = _customIntervalController.text.trim();
 
     // Validate inputs
     _validateOdometer(_odometerController.text);
@@ -138,9 +141,13 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     if (_odometerError != null ||
         _costError != null ||
         _odometerController.text.isEmpty ||
+        location.isEmpty ||
         _selectedDate == null ||
+        _selectedServiceType == null ||
         effectiveServiceType == null ||
         effectiveServiceType.isEmpty ||
+        (_selectedServiceType == '+ Other' &&
+            (customServiceType.isEmpty || customInterval.isEmpty)) ||
         _selectedMotorcycleId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -161,7 +168,10 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     }
 
     final motors = ref.read(motorcycleProvider);
-    final selectedMotor = motors.firstWhere((m) => m.id == _selectedMotorcycleId, orElse: () => motors.first);
+    final selectedMotor = motors.firstWhere(
+      (m) => m.id == _selectedMotorcycleId,
+      orElse: () => motors.first,
+    );
 
     final newRecord = ServiceRecord(
       motorcycleId: _selectedMotorcycleId,
@@ -241,13 +251,19 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                     _buildMotorcycleSelector(motorcycles),
                     const SizedBox(height: 24),
                     if (_selectedMotorcycleId != null) ...[
-                      _buildCycleSelector(motorcycles.firstWhere((m) => m.id == _selectedMotorcycleId, orElse: () => motorcycles.first)),
+                      _buildCycleSelector(
+                        motorcycles.firstWhere(
+                          (m) => m.id == _selectedMotorcycleId,
+                          orElse: () => motorcycles.first,
+                        ),
+                      ),
                     ],
                     _buildInputField(
                       label: 'Odometer Reading (km)',
                       hintText: 'e.g. 12450',
                       controller: _odometerController,
                       keyboardType: TextInputType.number,
+                      isRequired: true,
                       errorText: _odometerError,
                       onChanged: _validateOdometer,
                     ),
@@ -256,6 +272,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                       label: 'Location/Workshop',
                       hintText: 'e.g. Bengkel Resmi Honda',
                       controller: _locationController,
+                      isRequired: true,
                     ),
                     const SizedBox(height: 24),
                     _buildInputField(
@@ -265,6 +282,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                       controller: _dateController,
                       readOnly: true,
                       onTap: _pickDate,
+                      isRequired: true,
                     ),
                     const SizedBox(height: 24),
                     _buildServiceTypeSelector(intervals),
@@ -358,14 +376,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Motorcycle',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
+        _buildLabel('Motorcycle', isRequired: true),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -498,18 +509,12 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     VoidCallback? onTap,
     String? errorText,
     void Function(String)? onChanged,
+    bool isRequired = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
+        _buildLabel(label, isRequired: isRequired),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -564,25 +569,45 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     );
   }
 
+  Widget _buildLabel(String label, {bool isRequired = false}) {
+    return RichText(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
+        ),
+        children: isRequired
+            ? [
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(
+                    color: Colors.red.shade600,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ]
+            : const [],
+      ),
+    );
+  }
+
   Widget _buildCycleSelector(Motorcycle activeMotor) {
     if (activeMotor.cycle == 0) {
       return const SizedBox.shrink();
     }
 
-    final List<int> cycleOptions = List.generate(activeMotor.cycle + 1, (index) => index);
+    final List<int> cycleOptions = List.generate(
+      activeMotor.cycle + 1,
+      (index) => index,
+    );
     final currentCycle = _selectedCycle ?? activeMotor.cycle;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Cycle',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
+        _buildLabel('Cycle', isRequired: true),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -599,71 +624,89 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
             ],
           ),
           child: PopupMenuButton<int>(
-             initialValue: currentCycle,
-             tooltip: 'Select Cycle',
-             elevation: 8,
-             shadowColor: Colors.black26,
-             surfaceTintColor: Colors.white,
-             color: Colors.white,
-             shape: RoundedRectangleBorder(
-               borderRadius: BorderRadius.circular(20),
-             ),
-             position: PopupMenuPosition.under,
-             onSelected: (val) {
-               setState(() {
-                 _selectedCycle = val;
-               });
-             },
-             itemBuilder: (context) => cycleOptions.map((c) {
-                final isSelected = c == currentCycle;
-                return PopupMenuItem<int>(
-                   value: c,
-                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                   child: Container(
-                     width: double.infinity,
-                     padding: const EdgeInsets.symmetric(vertical: 10),
-                     decoration: BoxDecoration(
-                       border: Border(
-                         bottom: BorderSide(color: Colors.grey.shade100, width: 1),
-                       ),
-                     ),
-                     child: Row(
-                       children: [
-                          Icon(Icons.history, color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade500, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Cycle $c',
-                              style: TextStyle(
-                                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black87,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                fontSize: 14,
-                              ),
-                            )
-                          ),
-                          if (isSelected) Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary, size: 20)
-                       ]
-                     )
-                   )
-                );
-             }).toList(),
-             child: Row(
-               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-               children: [
-                  Expanded(
-                    child: Text(
-                      'Cycle $currentCycle',
-                      style: TextStyle(
-                        color: Colors.indigo.shade900,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      )
-                    )
+            initialValue: currentCycle,
+            tooltip: 'Select Cycle',
+            elevation: 8,
+            shadowColor: Colors.black26,
+            surfaceTintColor: Colors.white,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            position: PopupMenuPosition.under,
+            onSelected: (val) {
+              setState(() {
+                _selectedCycle = val;
+              });
+            },
+            itemBuilder: (context) => cycleOptions.map((c) {
+              final isSelected = c == currentCycle;
+              return PopupMenuItem<int>(
+                value: c,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                    ),
                   ),
-                  Icon(Icons.keyboard_arrow_down_rounded, color: Colors.indigo.shade300)
-               ]
-             )
-          )
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey.shade500,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Cycle $c',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.black87,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      if (isSelected)
+                        Icon(
+                          Icons.check_circle,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Cycle $currentCycle',
+                    style: TextStyle(
+                      color: Colors.indigo.shade900,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Colors.indigo.shade300,
+                ),
+              ],
+            ),
+          ),
         ),
         const SizedBox(height: 24),
       ],
@@ -719,14 +762,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Service Type',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: Colors.black87,
-          ),
-        ),
+        _buildLabel('Service Type', isRequired: true),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -840,6 +876,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
             label: 'Custom Service Type',
             hintText: 'e.g. Ganti Spion',
             controller: _customServiceTypeController,
+            isRequired: true,
           ),
           const SizedBox(height: 16),
           _buildInputField(
@@ -847,6 +884,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
             hintText: 'e.g. 5000',
             controller: _customIntervalController,
             keyboardType: TextInputType.number,
+            isRequired: true,
           ),
         ],
       ],
