@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/motorcycle.dart';
 import '../models/service_record.dart';
 import '../models/service_interval.dart';
+import '../models/trip_record.dart';
 
 class FirestoreService {
   // Singleton pattern
@@ -185,6 +186,52 @@ class FirestoreService {
         .collection('users')
         .doc(_uid)
         .collection('service_intervals')
+        .doc(id)
+        .delete();
+  }
+
+  // --- TRIP RECORDS ---
+  Future<String> insertTripRecord(TripRecord trip) async {
+    final docRef = await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('trip_records')
+        .add(trip.toMap());
+    return docRef.id;
+  }
+
+  Future<List<TripRecord>> getTripRecordsByMotorcycle(
+    String motorcycleId,
+  ) async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('trip_records')
+        .where('motorcycle_id', isEqualTo: motorcycleId)
+        .orderBy('start_time', descending: true)
+        .get();
+    return snapshot.docs
+        .map((doc) => TripRecord.fromMap(doc.data(), id: doc.id))
+        .toList();
+  }
+
+  Future<List<TripRecord>> getAllTripRecords() async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('trip_records')
+        .orderBy('start_time', descending: true)
+        .get();
+    return snapshot.docs
+        .map((doc) => TripRecord.fromMap(doc.data(), id: doc.id))
+        .toList();
+  }
+
+  Future<void> deleteTripRecord(String id) async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('trip_records')
         .doc(id)
         .delete();
   }
