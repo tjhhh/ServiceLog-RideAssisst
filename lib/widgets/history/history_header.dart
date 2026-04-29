@@ -28,15 +28,7 @@ class HistoryHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
-          'MAINTENANCE LOG',
-          style: TextStyle(
-            fontSize: 12,
-            letterSpacing: 1.2,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         const Text(
           'Service History',
           textAlign: TextAlign.center,
