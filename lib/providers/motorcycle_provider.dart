@@ -1,9 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/motorcycle.dart';
 import '../services/auth_service.dart';
-import '../services/firestore_service.dart';
+import '../services/firestore_repository.dart';
 
 // Provider yang bisa dipanggil untuk mengambil/mengupdate list motor
 final motorcycleProvider =
@@ -12,8 +11,8 @@ final motorcycleProvider =
     );
 
 class MotorcycleNotifier extends Notifier<List<Motorcycle>> {
-  final dbService = FirestoreService.instance;
-  final _auth = FirebaseAuth.instance;
+  FirestoreRepository get dbService => ref.read(firestoreRepositoryProvider);
+  String? get _currentUserId => ref.read(authUserIdProvider);
 
   @override
   List<Motorcycle> build() {
@@ -29,7 +28,7 @@ class MotorcycleNotifier extends Notifier<List<Motorcycle>> {
   }
 
   Future<void> loadMotorcycles([String? userId]) async {
-    final expectedUid = userId ?? _auth.currentUser?.uid;
+    final expectedUid = userId ?? _currentUserId;
     if (expectedUid == null) {
       state = [];
       return;
@@ -37,7 +36,7 @@ class MotorcycleNotifier extends Notifier<List<Motorcycle>> {
 
     try {
       final motors = await dbService.getAllMotorcycles();
-      if (_auth.currentUser?.uid != expectedUid) {
+      if (_currentUserId != expectedUid) {
         return;
       }
 
@@ -45,7 +44,7 @@ class MotorcycleNotifier extends Notifier<List<Motorcycle>> {
       // Kalau kita reset ke default, garasi tidak bisa menjadi kosong dan terkesan 'tidak bisa dihapus'.
       state = motors;
     } catch (e) {
-      if (_auth.currentUser?.uid != expectedUid) {
+      if (_currentUserId != expectedUid) {
         return;
       }
 

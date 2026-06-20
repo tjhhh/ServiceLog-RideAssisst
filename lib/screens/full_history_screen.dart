@@ -7,6 +7,8 @@ import '../models/service_record.dart';
 import '../models/motorcycle.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
+import '../providers/settings_provider.dart';
+import '../services/share_service.dart';
 import '../widgets/history/service_detail_sheet.dart';
 import 'add_service_screen.dart';
 
@@ -201,31 +203,118 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                   _selectedMotorcycleId = value == '-1' ? null : value;
                 });
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem<String>(
-                  value: '-1',
-                  child: Text('All Motors'),
-                ),
-                ...motorcycles.map((motor) {
-                  return PopupMenuItem<String>(
-                    value: motor.id ?? '-1',
-                    child: Text('${motor.brand} ${motor.name}'),
+              itemBuilder: (context) {
+                final themeColor = Theme.of(context).colorScheme.primary;
+                final isAllSelected = _selectedMotorcycleId == null;
+                return [
+                  PopupMenuItem<String>(
+                    value: '-1',
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.all_inclusive_rounded,
+                            color: isAllSelected
+                                ? themeColor
+                                : Colors.grey.shade500,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'All Motors',
+                              style: TextStyle(
+                                color: isAllSelected
+                                    ? themeColor
+                                    : Colors.black87,
+                                fontWeight: isAllSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          if (isAllSelected)
+                            Icon(
+                              Icons.check_circle,
+                              color: themeColor,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ...motorcycles.map((motor) {
+                    final isSelected = motor.id == _selectedMotorcycleId;
+                    return PopupMenuItem<String>(
+                      value: motor.id ?? '-1',
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                          ),
+                        ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.two_wheeler_outlined,
+                            color: isSelected
+                                ? themeColor
+                                : Colors.grey.shade500,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '${motor.brand} ${motor.name}',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? themeColor
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(
+                              Icons.check_circle,
+                              color: themeColor,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
                   );
                 }),
-              ],
+              ];
+            },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     selectedMotorName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.indigo,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.keyboard_arrow_down, color: Colors.indigo),
+                  Icon(Icons.keyboard_arrow_down, color: Theme.of(context).colorScheme.primary),
                 ],
               ),
             ),
@@ -459,6 +548,12 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
       );
     }
 
+    final motorcycles = ref.watch(motorcycleProvider);
+    final themeColorValue = ref.watch(
+      settingsProvider.select((s) => s.themeColorValue),
+    );
+    final themeColor = Color(themeColorValue);
+
     return Column(
       children: records.asMap().entries.map((entry) {
         final index = entry.key;
@@ -476,7 +571,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           case 'chain':
             typeColor = Colors.blue.shade100;
             typeTextColor = Colors.blue.shade700;
-            dotColor = Theme.of(context).colorScheme.primary;
+            dotColor = themeColor;
             break;
           case 'tires':
           case 'brakes':
@@ -495,18 +590,29 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           decimalDigits: 0,
         );
 
+        // Find motorcycle for export
+        Motorcycle? motorcycle;
+        try {
+          motorcycle = motorcycles.firstWhere(
+            (m) => m.id == record.motorcycleId,
+          );
+        } catch (_) {}
+
         return _buildTimelineItem(
+          record: record,
+          motorcycle: motorcycle,
+          themeColor: themeColor,
           type: record.serviceType.toUpperCase(),
           typeColor: typeColor,
           typeTextColor: typeTextColor,
           dotColor: dotColor,
           title: '${record.serviceType} Maintenance',
           price: currencyFormat.format(record.cost),
-          location: record.location, // Kirim lokasi ke timeline item
+          location: record.location,
           description: record.notes.isNotEmpty
               ? record.notes
               : 'No additional notes provided.',
-          imageUrl: record.receiptImagePath, // ini path lokal
+          imageUrl: record.receiptImagePath,
           isLast: isLast,
           date: DateFormat('MMM dd, yyyy').format(record.date),
           onTap: () => showServiceDetailSheet(context, record),
@@ -516,6 +622,9 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
   }
 
   Widget _buildTimelineItem({
+    required ServiceRecord record,
+    required Motorcycle? motorcycle,
+    required Color themeColor,
     required String type,
     required Color typeColor,
     required Color typeTextColor,
@@ -643,18 +752,18 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.location_on_outlined,
                               size: 16,
-                              color: Colors.indigo,
+                              color: themeColor,
                             ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 location,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.indigo,
+                                  color: themeColor,
                                   fontWeight: FontWeight.w500,
                                 ),
                                 maxLines: 1,
@@ -710,6 +819,53 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                           ),
                         ),
                       ],
+                      // ── Share button ──────────────────────────────────
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          GestureDetector(
+                            onTap: () => ShareService.shareServiceRecord(
+                              context: context,
+                              record: record,
+                              motorcycle: motorcycle,
+                              themeColor: themeColor,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: themeColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: themeColor.withOpacity(0.15),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.ios_share_rounded,
+                                    size: 14,
+                                    color: themeColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Share',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),

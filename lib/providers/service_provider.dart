@@ -1,10 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/service_record.dart';
-import '../services/firestore_service.dart';
 import 'motorcycle_provider.dart';
 import '../services/auth_service.dart';
+import '../services/firestore_repository.dart';
 
 // Di Riverpod terbaru, `Notifier` disarankan alih-alih `StateNotifier`
 final serviceRecordsProvider =
@@ -13,7 +12,8 @@ final serviceRecordsProvider =
     });
 
 class ServiceNotifier extends Notifier<List<ServiceRecord>> {
-  final _auth = FirebaseAuth.instance;
+  String? get _currentUserId => ref.read(authUserIdProvider);
+  FirestoreRepository get _db => ref.read(firestoreRepositoryProvider);
 
   @override
   List<ServiceRecord> build() {
@@ -30,21 +30,21 @@ class ServiceNotifier extends Notifier<List<ServiceRecord>> {
 
   // Memuat data dari Firebase Firestore
   Future<void> _loadRecords([String? userId]) async {
-    final expectedUid = userId ?? _auth.currentUser?.uid;
+    final expectedUid = userId ?? _currentUserId;
     if (expectedUid == null) {
       state = [];
       return;
     }
 
     try {
-      final records = await FirestoreService.instance.getAllServiceRecords();
-      if (_auth.currentUser?.uid != expectedUid) {
+      final records = await _db.getAllServiceRecords();
+      if (_currentUserId != expectedUid) {
         return;
       }
 
       state = records;
     } catch (e) {
-      if (_auth.currentUser?.uid != expectedUid) {
+      if (_currentUserId != expectedUid) {
         return;
       }
 
@@ -56,7 +56,7 @@ class ServiceNotifier extends Notifier<List<ServiceRecord>> {
 
   // Menambahkan record baru
   Future<void> addRecord(ServiceRecord record) async {
-    final dbHelper = FirestoreService.instance;
+    final dbHelper = _db;
     await dbHelper.insertServiceRecord(record);
 
     if (record.motorcycleId != null) {
@@ -82,13 +82,13 @@ class ServiceNotifier extends Notifier<List<ServiceRecord>> {
 
   // Memperbarui record
   Future<void> updateRecord(ServiceRecord record) async {
-    await FirestoreService.instance.updateServiceRecord(record);
+    await _db.updateServiceRecord(record);
     await _loadRecords();
   }
 
   // Menghapus record
   Future<void> deleteRecord(String id) async {
-    await FirestoreService.instance.deleteServiceRecord(id);
+    await _db.deleteServiceRecord(id);
     await _loadRecords();
   }
 }

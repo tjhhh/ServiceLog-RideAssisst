@@ -1,16 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/trip_record.dart';
-import '../services/firestore_service.dart';
 import '../services/auth_service.dart';
+import '../services/firestore_repository.dart';
 
 final tripProvider = NotifierProvider<TripNotifier, List<TripRecord>>(
   () => TripNotifier(),
 );
 
 class TripNotifier extends Notifier<List<TripRecord>> {
-  final _db = FirestoreService.instance;
-  final _auth = FirebaseAuth.instance;
+  FirestoreRepository get _db => ref.read(firestoreRepositoryProvider);
+  String? get _currentUserId => ref.read(authUserIdProvider);
 
   @override
   List<TripRecord> build() {
@@ -26,7 +25,7 @@ class TripNotifier extends Notifier<List<TripRecord>> {
   }
 
   Future<void> loadAll([String? userId]) async {
-    final expectedUid = userId ?? _auth.currentUser?.uid;
+    final expectedUid = userId ?? _currentUserId;
     if (expectedUid == null) {
       state = [];
       return;
@@ -34,13 +33,13 @@ class TripNotifier extends Notifier<List<TripRecord>> {
 
     try {
       final records = await _db.getAllTripRecords();
-      if (_auth.currentUser?.uid != expectedUid) {
+      if (_currentUserId != expectedUid) {
         return;
       }
 
       state = records;
     } catch (e) {
-      if (_auth.currentUser?.uid != expectedUid) {
+      if (_currentUserId != expectedUid) {
         return;
       }
 

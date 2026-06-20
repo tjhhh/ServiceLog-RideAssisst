@@ -1,16 +1,22 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
+import '../../models/motorcycle.dart';
 import '../../models/service_record.dart';
+import '../../providers/motorcycle_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../services/share_service.dart';
 import 'service_detail_sheet.dart';
 
-class HistoryTimeline extends StatelessWidget {
+class HistoryTimeline extends ConsumerWidget {
   final List<ServiceRecord> records;
 
   const HistoryTimeline({super.key, required this.records});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (records.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(top: 40.0),
@@ -23,6 +29,12 @@ class HistoryTimeline extends StatelessWidget {
         ),
       );
     }
+
+    final motorcycles = ref.watch(motorcycleProvider);
+    final themeColorValue = ref.watch(
+      settingsProvider.select((s) => s.themeColorValue),
+    );
+    final themeColor = Color(themeColorValue);
 
     return Column(
       children: records.asMap().entries.map((entry) {
@@ -40,7 +52,7 @@ class HistoryTimeline extends StatelessWidget {
           case 'chain':
             typeColor = Colors.blue.shade100;
             typeTextColor = Colors.blue.shade700;
-            dotColor = Theme.of(context).colorScheme.primary;
+            dotColor = themeColor;
             break;
           case 'tires':
           case 'brakes':
@@ -59,7 +71,18 @@ class HistoryTimeline extends StatelessWidget {
           decimalDigits: 0,
         );
 
+        // Find associated motorcycle for the export template
+        Motorcycle? motorcycle;
+        try {
+          motorcycle = motorcycles.firstWhere(
+            (m) => m.id == record.motorcycleId,
+          );
+        } catch (_) {}
+
         return _TimelineItemCard(
+          record: record,
+          motorcycle: motorcycle,
+          themeColor: themeColor,
           type: record.serviceType.toUpperCase(),
           typeColor: typeColor,
           typeTextColor: typeTextColor,
@@ -81,6 +104,9 @@ class HistoryTimeline extends StatelessWidget {
 }
 
 class _TimelineItemCard extends StatelessWidget {
+  final ServiceRecord record;
+  final Motorcycle? motorcycle;
+  final Color themeColor;
   final String type;
   final Color typeColor;
   final Color typeTextColor;
@@ -95,6 +121,9 @@ class _TimelineItemCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const _TimelineItemCard({
+    required this.record,
+    required this.motorcycle,
+    required this.themeColor,
     required this.type,
     required this.typeColor,
     required this.typeTextColor,
@@ -164,140 +193,188 @@ class _TimelineItemCard extends StatelessWidget {
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: typeColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            type,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                              color: typeTextColor,
+                      // Row: badge + price
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: typeColor,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                type,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                  color: typeTextColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(width: 8),
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        date,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 4),
                       Text(
-                        price,
+                        title,
                         style: const TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.bold,
                           color: Colors.black87,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    date,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  if (location != null && location!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: Colors.indigo,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            location!,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.indigo,
-                              fontWeight: FontWeight.w500,
+                      if (location != null && location!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 16,
+                              color: themeColor,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                location!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: themeColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.6,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      if (imageUrl != null && imageUrl!.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.file(
+                            File(imageUrl!),
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 140,
+                                width: double.infinity,
+                                color: Colors.grey[200],
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.image_not_supported_rounded,
+                                      color: Colors.grey,
+                                      size: 40,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Gambar tidak ditemukan',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.6,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  if (imageUrl != null && imageUrl!.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(
-                        File(imageUrl!),
-                        height: 140,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 140,
-                            width: double.infinity,
-                            color: Colors.grey[200],
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.image_not_supported_rounded,
-                                  color: Colors.grey,
-                                  size: 40,
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Gambar tidak ditemukan',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
+                      // ── Share button row ───────────────────────────────
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          GestureDetector(
+                            onTap: () => ShareService.shareServiceRecord(
+                              context: context,
+                              record: record,
+                              motorcycle: motorcycle,
+                              themeColor: themeColor,
                             ),
-                          );
-                        },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: themeColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: themeColor.withOpacity(0.15),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.ios_share_rounded,
+                                    size: 14,
+                                    color: themeColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Share',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-            ),
             ),
           ),
         ],

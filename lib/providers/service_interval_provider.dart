@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/service_interval.dart';
-import '../services/firestore_service.dart';
+import '../services/firestore_repository.dart';
 
 class ServiceIntervalNotifier extends Notifier<List<ServiceInterval>> {
   @override
@@ -8,7 +8,7 @@ class ServiceIntervalNotifier extends Notifier<List<ServiceInterval>> {
 
   // Fetch intervals for a specific motorcycle, initialize defaults if none exist
   Future<void> fetchIntervals(String motorcycleId, String type) async {
-    final db = FirestoreService.instance;
+    final db = ref.read(firestoreRepositoryProvider);
     var intervals = await db.getServiceIntervalsByMotorcycle(motorcycleId);
 
     if (intervals.isEmpty) {
@@ -23,7 +23,7 @@ class ServiceIntervalNotifier extends Notifier<List<ServiceInterval>> {
   }
 
   Future<void> updateInterval(ServiceInterval interval) async {
-    final db = FirestoreService.instance;
+    final db = ref.read(firestoreRepositoryProvider);
     await db.updateServiceInterval(interval);
 
     // Update local state smoothly
@@ -32,7 +32,7 @@ class ServiceIntervalNotifier extends Notifier<List<ServiceInterval>> {
 
   // Method to insert a new custom interval manually
   Future<void> addCustomInterval(ServiceInterval interval) async {
-    final db = FirestoreService.instance;
+    final db = ref.read(firestoreRepositoryProvider);
     final newId = await db.insertServiceInterval(interval);
     final newInterval = interval.copyWith(id: newId);
 
@@ -41,7 +41,7 @@ class ServiceIntervalNotifier extends Notifier<List<ServiceInterval>> {
 
   // Optional: delete interval if user wants to remove their custom intervals
   Future<void> deleteInterval(String id) async {
-    final db = FirestoreService.instance;
+    final db = ref.read(firestoreRepositoryProvider);
     await db.deleteServiceInterval(id);
     state = state.where((i) => i.id != id).toList();
   }

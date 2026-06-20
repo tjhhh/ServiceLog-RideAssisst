@@ -383,10 +383,10 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.indigo.shade100),
+            border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.indigo.shade50.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -480,7 +480,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                     style: TextStyle(
                       color: _selectedMotorcycleId == null
                           ? Colors.black54
-                          : Colors.indigo.shade900,
+                          : Theme.of(context).colorScheme.primary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -489,7 +489,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                 ),
                 Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: Colors.indigo.shade300,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
                 ),
               ],
             ),
@@ -521,7 +521,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
           decoration: BoxDecoration(
             color: errorText != null
                 ? Colors.red.shade50.withOpacity(0.5)
-                : Colors.indigo.shade50.withOpacity(0.5),
+                : Theme.of(context).colorScheme.primary.withOpacity(0.06),
             borderRadius: BorderRadius.circular(12),
             border: errorText != null
                 ? Border.all(color: Colors.red.shade200)
@@ -614,10 +614,10 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.indigo.shade100),
+            border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.indigo.shade50.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -694,7 +694,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                   child: Text(
                     'Cycle $currentCycle',
                     style: TextStyle(
-                      color: Colors.indigo.shade900,
+                      color: Theme.of(context).colorScheme.primary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -702,7 +702,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                 ),
                 Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: Colors.indigo.shade300,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
                 ),
               ],
             ),
@@ -729,7 +729,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.indigo.shade50.withOpacity(0.5),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextField(
@@ -769,10 +769,10 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.indigo.shade100),
+            border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
             boxShadow: [
               BoxShadow(
-                color: Colors.indigo.shade50.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -855,7 +855,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                     style: TextStyle(
                       color: _selectedServiceType == null
                           ? Colors.black54
-                          : Colors.indigo.shade900,
+                          : Theme.of(context).colorScheme.primary,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                     ),
@@ -864,7 +864,7 @@ class _AddServiceScreenState extends ConsumerState<AddServiceScreen> {
                 ),
                 Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: Colors.indigo.shade300,
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
                 ),
               ],
             ),

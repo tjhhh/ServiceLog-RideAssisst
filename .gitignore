@@ -12,7 +12,8 @@
 .swiftpm/
 migrate_working_dir/
 notes/
-
+testing/
+test/
 # IntelliJ related
 *.iml
 *.ipr
