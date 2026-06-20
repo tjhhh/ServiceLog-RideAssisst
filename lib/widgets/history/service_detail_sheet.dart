@@ -1,7 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../models/motorcycle.dart';
 import '../../models/service_record.dart';
+import '../../providers/motorcycle_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../services/share_service.dart';
 
 void showServiceDetailSheet(BuildContext context, ServiceRecord record) {
   showModalBottomSheet(
@@ -12,13 +17,23 @@ void showServiceDetailSheet(BuildContext context, ServiceRecord record) {
   );
 }
 
-class _ServiceDetailSheet extends StatelessWidget {
+class _ServiceDetailSheet extends ConsumerWidget {
   final ServiceRecord record;
 
   const _ServiceDetailSheet({required this.record});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final motorcycles = ref.watch(motorcycleProvider);
+    final themeColor = Color(
+      ref.watch(settingsProvider.select((s) => s.themeColorValue)),
+    );
+
+    Motorcycle? motorcycle;
+    try {
+      motorcycle = motorcycles.firstWhere((m) => m.id == record.motorcycleId);
+    } catch (_) {}
+
     final currencyFormat = NumberFormat.currency(
       symbol: 'Rp ',
       decimalDigits: 0,
@@ -69,30 +84,56 @@ class _ServiceDetailSheet extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
+                    // Cost badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        color: themeColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
                         currencyFormat.format(record.cost),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
+                          color: themeColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Share button
+                    GestureDetector(
+                      onTap: () => ShareService.shareServiceRecord(
+                        context: context,
+                        record: record,
+                        motorcycle: motorcycle,
+                        themeColor: themeColor,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: themeColor.withOpacity(0.08),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: themeColor.withOpacity(0.2),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.ios_share_rounded,
+                          size: 18,
+                          color: themeColor,
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 24),
-                _buildInfoRow(Icons.calendar_today, 'Date', dateFormat.format(record.date)),
+                _buildInfoRow(Icons.calendar_today, 'Date', dateFormat.format(record.date), themeColor),
                 const SizedBox(height: 16),
-                _buildInfoRow(Icons.speed, 'Odometer', '${record.mileage} KM (Cycle ${record.cycle})'),
+                _buildInfoRow(Icons.speed, 'Odometer', '${record.mileage} KM (Cycle ${record.cycle})', themeColor),
                 if (record.location != null && record.location!.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  _buildInfoRow(Icons.location_on, 'Location', record.location!),
+                  _buildInfoRow(Icons.location_on, 'Location', record.location!, themeColor),
                 ],
                 const SizedBox(height: 24),
                 const Text(
@@ -164,11 +205,11 @@ class _ServiceDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildInfoRow(IconData icon, String label, String value, Color themeColor) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: const Color(0xFF64748B)),
+        Icon(icon, size: 20, color: themeColor.withOpacity(0.6)),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -176,9 +217,9 @@ class _ServiceDetailSheet extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Color(0xFF64748B),
+                  color: themeColor.withOpacity(0.6),
                   fontWeight: FontWeight.w600,
                 ),
               ),

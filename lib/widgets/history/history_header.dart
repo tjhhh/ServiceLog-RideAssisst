@@ -15,6 +15,8 @@ class HistoryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final themeColor = Theme.of(context).colorScheme.primary;
+
     String selectedMotorName = 'All Motors';
     if (selectedMotorcycleId != null) {
       try {
@@ -28,21 +30,13 @@ class HistoryHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
-          'MAINTENANCE LOG',
-          style: TextStyle(
-            fontSize: 12,
-            letterSpacing: 1.2,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         const Text(
           'Service History',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 36,
-            fontWeight: FontWeight.w300,
+            fontWeight: FontWeight.w500,
             color: Colors.black87,
             height: 1.1,
           ),
@@ -78,31 +72,117 @@ class HistoryHeader extends StatelessWidget {
               onSelected: (value) {
                 onMotorcycleSelected(value == '-1' ? null : value);
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem<String>(
-                  value: '-1',
-                  child: Text('All Motors'),
-                ),
-                ...motorcycles.map((motor) {
-                  return PopupMenuItem<String>(
-                    value: motor.id ?? '-1',
-                    child: Text('${motor.brand} ${motor.name}'),
-                  );
-                }),
-              ],
+              itemBuilder: (context) {
+                final isAllSelected = selectedMotorcycleId == null;
+                return [
+                  PopupMenuItem<String>(
+                    value: '-1',
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.all_inclusive_rounded,
+                            color: isAllSelected
+                                ? themeColor
+                                : Colors.grey.shade500,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'All Motors',
+                              style: TextStyle(
+                                color: isAllSelected
+                                    ? themeColor
+                                    : Colors.black87,
+                                fontWeight: isAllSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          if (isAllSelected)
+                            Icon(
+                              Icons.check_circle,
+                              color: themeColor,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ...motorcycles.map((motor) {
+                    final isSelected = motor.id == selectedMotorcycleId;
+                    return PopupMenuItem<String>(
+                      value: motor.id ?? '-1',
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.two_wheeler_outlined,
+                              color: isSelected
+                                  ? themeColor
+                                  : Colors.grey.shade500,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '${motor.brand} ${motor.name}',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? themeColor
+                                      : Colors.black87,
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              Icon(
+                                Icons.check_circle,
+                                color: themeColor,
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ];
+              },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     selectedMotorName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.indigo,
+                      color: themeColor,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.keyboard_arrow_down, color: Colors.indigo),
+                  Icon(Icons.keyboard_arrow_down, color: themeColor),
                 ],
               ),
             ),

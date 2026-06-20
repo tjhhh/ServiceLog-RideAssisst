@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import '../models/service_record.dart';
-import '../services/firestore_service.dart';
 import 'motorcycle_provider.dart';
+import '../services/auth_service.dart';
+import '../services/firestore_repository.dart';
 
 // Di Riverpod terbaru, `Notifier` disarankan alih-alih `StateNotifier`
 final serviceRecordsProvider =
@@ -10,19 +12,43 @@ final serviceRecordsProvider =
     });
 
 class ServiceNotifier extends Notifier<List<ServiceRecord>> {
+  String? get _currentUserId => ref.read(authUserIdProvider);
+  FirestoreRepository get _db => ref.read(firestoreRepositoryProvider);
+
   @override
   List<ServiceRecord> build() {
-    _loadRecords();
+    final authState = ref.watch(authStateProvider);
+    final user = authState.maybeWhen(data: (user) => user, orElse: () => null);
+
+    if (user == null) {
+      return [];
+    }
+
+    _loadRecords(user.uid);
     return [];
   }
 
   // Memuat data dari Firebase Firestore
-  Future<void> _loadRecords() async {
+  Future<void> _loadRecords([String? userId]) async {
+    final expectedUid = userId ?? _currentUserId;
+    if (expectedUid == null) {
+      state = [];
+      return;
+    }
+
     try {
-      final records = await FirestoreService.instance.getAllServiceRecords();
+      final records = await _db.getAllServiceRecords();
+      if (_currentUserId != expectedUid) {
+        return;
+      }
+
       state = records;
     } catch (e) {
-      print('Error loading service records: $e');
+      if (_currentUserId != expectedUid) {
+        return;
+      }
+
+      debugPrint('Error loading service records: $e');
       // If error, set empty
       state = [];
     }
@@ -30,7 +56,7 @@ class ServiceNotifier extends Notifier<List<ServiceRecord>> {
 
   // Menambahkan record baru
   Future<void> addRecord(ServiceRecord record) async {
-    final dbHelper = FirestoreService.instance;
+    final dbHelper = _db;
     await dbHelper.insertServiceRecord(record);
 
     if (record.motorcycleId != null) {
@@ -56,13 +82,13 @@ class ServiceNotifier extends Notifier<List<ServiceRecord>> {
 
   // Memperbarui record
   Future<void> updateRecord(ServiceRecord record) async {
-    await FirestoreService.instance.updateServiceRecord(record);
+    await _db.updateServiceRecord(record);
     await _loadRecords();
   }
 
   // Menghapus record
   Future<void> deleteRecord(String id) async {
-    await FirestoreService.instance.deleteServiceRecord(id);
+    await _db.deleteServiceRecord(id);
     await _loadRecords();
   }
 }

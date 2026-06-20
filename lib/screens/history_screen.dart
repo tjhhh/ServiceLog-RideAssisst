@@ -10,6 +10,7 @@ import '../widgets/history/history_header.dart';
 import '../widgets/history/history_summary_card.dart';
 import '../widgets/history/history_timeline.dart';
 import '../widgets/history/history_load_more.dart';
+import 'account_screen.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
@@ -67,45 +68,69 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FB),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        centerTitle: false,
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('lib/assets/logo_ra.png', width: 24, height: 24),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Image.asset(
+                'lib/assets/logo_ra.png',
+                width: 24,
+                height: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
             const Text(
               'RideAssist',
               style: TextStyle(
-                color: Colors.black87,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
+                color: Color(0xFF1E293B),
+                fontWeight: FontWeight.w800,
+                fontSize: 22,
+                letterSpacing: -0.5,
               ),
             ),
           ],
         ),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: Colors.indigo.shade100,
-              backgroundImage:
-                  FirebaseAuth.instance.currentUser?.photoURL != null &&
-                      File(
-                        FirebaseAuth.instance.currentUser!.photoURL!,
-                      ).existsSync()
-                  ? FileImage(
-                          File(FirebaseAuth.instance.currentUser!.photoURL!),
-                        )
-                        as ImageProvider
-                  : null,
-              child:
-                  (FirebaseAuth.instance.currentUser?.photoURL == null ||
-                      !File(
-                        FirebaseAuth.instance.currentUser!.photoURL!,
-                      ).existsSync())
-                  ? const Icon(Icons.person, size: 24, color: Colors.white)
-                  : null,
+            padding: const EdgeInsets.only(right: 20.0),
+            child: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AccountScreen(),
+                  ),
+                );
+              },
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.indigo.shade100,
+                backgroundImage:
+                    FirebaseAuth.instance.currentUser?.photoURL != null &&
+                        File(
+                          FirebaseAuth.instance.currentUser!.photoURL!,
+                        ).existsSync()
+                    ? FileImage(
+                            File(FirebaseAuth.instance.currentUser!.photoURL!),
+                          )
+                          as ImageProvider
+                    : null,
+                child:
+                    (FirebaseAuth.instance.currentUser?.photoURL == null ||
+                        !File(
+                          FirebaseAuth.instance.currentUser!.photoURL!,
+                        ).existsSync())
+                    ? const Icon(Icons.person, size: 24, color: Colors.white)
+                    : null,
+              ),
             ),
           ),
         ],

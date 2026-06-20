@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/trip_record.dart';
-import '../services/firestore_service.dart';
+import '../services/location_service.dart';
 import '../services/app_logger.dart';
+import 'trip_repository_provider.dart';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const double _kMinDistanceMeters = 5.0; // ignore update < 5 m
@@ -59,10 +61,10 @@ class TrackingState {
 
 // ─── Notifier ────────────────────────────────────────────────────────────────
 class TrackingNotifier extends Notifier<TrackingState> {
-  StreamSubscription<Position>? _positionSub;
+  StreamSubscription<LocationSample>? _positionSub;
   Timer? _durationTimer;
 
-  Position? _lastPosition;
+  LocationSample? _lastPosition;
   DateTime? _lastPositionTime;
   double _idleAccumSec = 0.0;
 
@@ -74,21 +76,41 @@ class TrackingNotifier extends Notifier<TrackingState> {
   /// Returns an error string on failure, null on success.
   Future<String?> startTracking(String motorId) async {
     try {
+      final locationService = ref.read(locationServiceProvider);
+
       // ── Permission checks ──
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      final serviceEnabled = await locationService.isLocationServiceEnabled();
       if (!serviceEnabled) {
         return 'Mohon nyalakan GPS (Lokasi) di pengaturan HP kamu terlebih dahulu.';
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
+      LocationPermission permission = await locationService.checkPermission();
       if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+        permission = await locationService.requestPermission();
         if (permission == LocationPermission.denied) {
           return 'Izin akses lokasi ditolak. Harap izinkan akses lokasi untuk menggunakan fitur ini.';
         }
       }
       if (permission == LocationPermission.deniedForever) {
         return 'Izin akses lokasi diblokir permanen. Harap buka pengaturan aplikasi dan izinkan manual.';
+      }
+
+      // Request ignore battery optimization to prevent OEM from killing background location
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        if (await Permission.ignoreBatteryOptimizations.isDenied) {
+          await Permission.ignoreBatteryOptimizations.request();
+        }
+        if (await Permission.locationAlways.isDenied) {
+          await Permission.locationAlways.request();
+        }
+        if (await Permission.notification.isDenied) {
+          await Permission.notification.request();
+        }
+      } else if (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS) {
+        if (await Permission.locationAlways.isDenied) {
+          await Permission.locationAlways.request();
+        }
       }
 
       // ── Build LocationSettings ──
@@ -121,9 +143,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
 
       // ── Start GPS stream ──
       AppLogger.instance.i('Starting GPS stream for motor $motorId');
-      _positionSub = Geolocator.getPositionStream(
-        locationSettings: locationSettings,
-      ).listen(_onLocationUpdate);
+      _positionSub = locationService
+          .getPositionStream(locationSettings: locationSettings)
+          .listen(_onLocationUpdate);
 
       return null; // success
     } catch (e) {
@@ -171,7 +193,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
       );
 
       try {
-        final id = await FirestoreService.instance.insertTripRecord(trip);
+        final id = await ref
+            .read(tripRepositoryProvider)
+            .insertTripRecord(trip);
         return trip.copyWith(id: id);
       } catch (e) {
         AppLogger.instance.e('stopTracking save error: $e');
@@ -207,8 +231,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.automotiveNavigation,
         distanceFilter: 3,
-        pauseLocationUpdatesAutomatically: true,
+        pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
       );
     }
     return const LocationSettings(
@@ -217,21 +242,21 @@ class TrackingNotifier extends Notifier<TrackingState> {
     );
   }
 
-  void _onLocationUpdate(Position position) {
+  void _onLocationUpdate(LocationSample position) {
     if (!state.isTracking) return;
 
     // Filter A: GPS Accuracy
     // Skip updates with very poor accuracy (> 35 meters)
-    if (position.accuracy > 35) {
+    if (position.accuracyMeters > 35) {
       AppLogger.instance.w(
-        'Skip poor accuracy (${position.accuracy.toStringAsFixed(1)}m)',
+        'Skip poor accuracy (${position.accuracyMeters.toStringAsFixed(1)}m)',
       );
       return;
     }
 
     if (_lastPosition == null) {
       _lastPosition = position;
-      _lastPositionTime = DateTime.now();
+      _lastPositionTime = position.timestamp;
       AppLogger.instance.i(
         'GPS Initialized: ${position.latitude}, ${position.longitude}',
       );
@@ -239,10 +264,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
     }
 
     AppLogger.instance.i(
-      'GPS Update Recv -> lat: ${position.latitude.toStringAsFixed(5)}, lng: ${position.longitude.toStringAsFixed(5)}, acc: ${position.accuracy.toStringAsFixed(1)}m, spd: ${position.speed.toStringAsFixed(1)}m/s',
+      'GPS Update Recv -> lat: ${position.latitude.toStringAsFixed(5)}, lng: ${position.longitude.toStringAsFixed(5)}, acc: ${position.accuracyMeters.toStringAsFixed(1)}m, spd: ${position.speedMetersPerSecond.toStringAsFixed(1)}m/s',
     );
 
-    final now = DateTime.now();
+    final now = position.timestamp;
     final deltaTimeSec =
         now.difference(_lastPositionTime!).inMilliseconds / 1000.0;
 
@@ -250,7 +275,8 @@ class TrackingNotifier extends Notifier<TrackingState> {
       return; // Prevent division by zero or extremely fast updates
 
     // ── Haversine distance ──
-    final distanceMeters = Geolocator.distanceBetween(
+    final locationService = ref.read(locationServiceProvider);
+    final distanceMeters = locationService.distanceBetween(
       _lastPosition!.latitude,
       _lastPosition!.longitude,
       position.latitude,
@@ -275,9 +301,9 @@ class TrackingNotifier extends Notifier<TrackingState> {
     // If calculated speed is significant (> 5 km/h) but GPS speed is <= 0,
     // we prefer the calculated speed.
     double speedKmh;
-    if (position.speed > 0.5) {
+    if (position.speedMetersPerSecond > 0.5) {
       // 0.5 m/s ≈ 1.8 km/h
-      speedKmh = position.speed * 3.6;
+      speedKmh = position.speedMetersPerSecond * 3.6;
 
       // If GPS reported speed is much lower than calculated movement, trust movement
       if (speedKmh < _kIdleSpeedKmh && calculatedSpeedKmh > 10.0) {
@@ -337,6 +363,10 @@ class TrackingNotifier extends Notifier<TrackingState> {
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
+final locationServiceProvider = Provider<LocationService>(
+  (ref) => GeolocatorLocationService(),
+);
+
 final trackingProvider = NotifierProvider<TrackingNotifier, TrackingState>(
   () => TrackingNotifier(),
 );

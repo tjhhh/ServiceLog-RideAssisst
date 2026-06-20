@@ -1,23 +1,48 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/trip_record.dart';
-import '../services/firestore_service.dart';
+import '../services/auth_service.dart';
+import '../services/firestore_repository.dart';
 
-final tripProvider =
-    NotifierProvider<TripNotifier, List<TripRecord>>(() => TripNotifier());
+final tripProvider = NotifierProvider<TripNotifier, List<TripRecord>>(
+  () => TripNotifier(),
+);
 
 class TripNotifier extends Notifier<List<TripRecord>> {
-  final _db = FirestoreService.instance;
+  FirestoreRepository get _db => ref.read(firestoreRepositoryProvider);
+  String? get _currentUserId => ref.read(authUserIdProvider);
 
   @override
   List<TripRecord> build() {
-    loadAll();
+    final authState = ref.watch(authStateProvider);
+    final user = authState.maybeWhen(data: (user) => user, orElse: () => null);
+
+    if (user == null) {
+      return [];
+    }
+
+    loadAll(user.uid);
     return [];
   }
 
-  Future<void> loadAll() async {
+  Future<void> loadAll([String? userId]) async {
+    final expectedUid = userId ?? _currentUserId;
+    if (expectedUid == null) {
+      state = [];
+      return;
+    }
+
     try {
-      state = await _db.getAllTripRecords();
+      final records = await _db.getAllTripRecords();
+      if (_currentUserId != expectedUid) {
+        return;
+      }
+
+      state = records;
     } catch (e) {
+      if (_currentUserId != expectedUid) {
+        return;
+      }
+
       state = [];
     }
   }

@@ -154,28 +154,27 @@ class _OdometerUpdateSheetState extends State<OdometerUpdateSheet>
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
     final primary = Theme.of(context).colorScheme.primary;
     final odo = widget.motor.odometer;
-    final delta =
-        (_parsedValue != null && _parsedValue! > odo)
-            ? _parsedValue! - odo
-            : 0;
+    final delta = (_parsedValue != null && _parsedValue! > odo)
+        ? _parsedValue! - odo
+        : 0;
     final progressValue = (odo / _maxOdo).clamp(0.0, 1.0);
     final nearLimit = odo >= 89999;
+    final maxSheetHeight = mediaQuery.size.height - mediaQuery.padding.top - 12;
 
     return AnimatedPadding(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
+      padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
       child: Container(
+        constraints: BoxConstraints(maxHeight: maxSheetHeight),
         decoration: const BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             // Handle bar
             Container(
@@ -189,489 +188,501 @@ class _OdometerUpdateSheetState extends State<OdometerUpdateSheet>
             ),
             const SizedBox(height: 20),
 
-            // ── Header ──────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: primary.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.speed_rounded, color: primary, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Update Odometer',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                      Text(
-                        widget.motor.name,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // ── Current ODO + Progress Bar ───────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Posisi saat ini: $odo KM',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        '${(progressValue * 100).toStringAsFixed(0)}% dari $_maxOdo KM',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: nearLimit ? Colors.red : Colors.grey.shade500,
-                          fontWeight:
-                              nearLimit ? FontWeight.w600 : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: progressValue),
-                      duration: const Duration(milliseconds: 600),
-                      curve: Curves.easeOutCubic,
-                      builder:
-                          (_, value, __) => LinearProgressIndicator(
-                            value: value,
-                            minHeight: 8,
-                            backgroundColor: Colors.grey.shade100,
-                            color:
-                                nearLimit
-                                    ? Colors.red
-                                    : progressValue > 0.7
-                                    ? Colors.orange
-                                    : primary,
-                          ),
-                    ),
-                  ),
-                  if (nearLimit) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.warning_amber_rounded,
-                          size: 14,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Mendekati batas! Pertimbangkan Reset Cycle.',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.red,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // ── Input Field ──────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: AnimatedBuilder(
-                animation: _shakeAnim,
-                builder:
-                    (_, child) => Transform.translate(
-                      offset: Offset(_shakeAnim.value, 0),
-                      child: child,
-                    ),
+            Expanded(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color:
-                                  _errorText != null
-                                      ? Colors.red.shade50
-                                      : Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color:
-                                    _errorText != null
-                                        ? Colors.red.shade300
-                                        : Colors.grey.shade200,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _ctrl,
-                              focusNode: _focusNode,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(5),
-                              ],
-                              onChanged: _onChanged,
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color:
-                                    _errorText != null
-                                        ? Colors.red.shade700
-                                        : const Color(0xFF0F172A),
-                              ),
-                              textAlign: TextAlign.center,
-                              decoration: InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                  horizontal: 16,
-                                ),
-                                hintText: odo.toString(),
-                                hintStyle: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w300,
-                                  color: Colors.grey.shade300,
-                                ),
-                                suffixText: 'KM',
-                                suffixStyle: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color:
-                                      _errorText != null
-                                          ? Colors.red.shade400
-                                          : primary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Delta badge
-                        if (delta > 0) ...[
-                          const SizedBox(width: 12),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
+                    // ── Header ──────────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: primary.withOpacity(0.3),
-                              ),
+                              shape: BoxShape.circle,
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '+$delta',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: primary,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                Text(
-                                  'KM',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: primary.withOpacity(0.7),
-                                  ),
-                                ),
-                              ],
+                            child: Icon(
+                              Icons.speed_rounded,
+                              color: primary,
+                              size: 22,
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-
-                    // Inline error
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 200),
-                      crossFadeState:
-                          _errorText != null
-                              ? CrossFadeState.showFirst
-                              : CrossFadeState.showSecond,
-                      firstChild: Padding(
-                        padding: const EdgeInsets.only(top: 8, left: 4),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.error_outline,
-                              size: 14,
-                              color: Colors.red,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _errorText ?? '',
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Update Odometer',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              Text(
+                                widget.motor.name,
                                 style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.red,
+                                  fontSize: 13,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ── Current ODO + Progress Bar ───────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Posisi saat ini: $odo KM',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF64748B),
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
+                              Text(
+                                '${(progressValue * 100).toStringAsFixed(0)}% dari $_maxOdo KM',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: nearLimit
+                                      ? Colors.red
+                                      : Colors.grey.shade500,
+                                  fontWeight: nearLimit
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: progressValue),
+                              duration: const Duration(milliseconds: 600),
+                              curve: Curves.easeOutCubic,
+                              builder: (_, value, __) =>
+                                  LinearProgressIndicator(
+                                    value: value,
+                                    minHeight: 8,
+                                    backgroundColor: Colors.grey.shade100,
+                                    color: nearLimit
+                                        ? Colors.red
+                                        : progressValue > 0.7
+                                        ? Colors.orange
+                                        : primary,
+                                  ),
+                            ),
+                          ),
+                          if (nearLimit) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.warning_amber_rounded,
+                                  size: 14,
+                                  color: Colors.red,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Mendekati batas! Pertimbangkan Reset Cycle.',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ),
-                      secondChild: const SizedBox(height: 8),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            // ── Save KM button ────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSaving ? null : _saveKm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: primary.withOpacity(0.5),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 0,
-                  ),
-                  child:
-                      _isSaving
-                          ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                          : const Text(
-                            'Simpan Odometer',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // ── Cycle Reset Section (Collapsible) ─────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                children: [
-                  // Toggle button
-                  InkWell(
-                    onTap: _toggleCycleSection,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color:
-                            _cycleExpanded
-                                ? Colors.red.shade50
-                                : Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color:
-                              _cycleExpanded
-                                  ? Colors.red.shade200
-                                  : Colors.grey.shade200,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _cycleExpanded
-                                ? Icons.warning_amber_rounded
-                                : Icons.refresh_rounded,
-                            size: 18,
-                            color:
-                                _cycleExpanded
-                                    ? Colors.red.shade700
-                                    : Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _cycleExpanded
-                                  ? 'Batalkan Reset Cycle'
-                                  : 'Reset Odometer Cycle',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color:
-                                    _cycleExpanded
-                                        ? Colors.red.shade700
-                                        : Colors.grey.shade600,
-                              ),
-                            ),
-                          ),
-                          AnimatedRotation(
-                            turns: _cycleExpanded ? 0.5 : 0,
-                            duration: const Duration(milliseconds: 300),
-                            child: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color:
-                                  _cycleExpanded
-                                      ? Colors.red.shade400
-                                      : Colors.grey.shade400,
-                            ),
-                          ),
                         ],
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 20),
 
-                  // Expandable content
-                  SizeTransition(
-                    sizeFactor: _cycleExpandAnim,
-                    axis: Axis.vertical,
-                    child: AnimatedBuilder(
-                      animation: _shakeAnim,
-                      builder:
-                          (_, child) => Transform.translate(
-                            offset: Offset(_shakeAnim.value, 0),
-                            child: child,
-                          ),
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: Colors.red.shade200),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                    // ── Input Field ──────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: AnimatedBuilder(
+                        animation: _shakeAnim,
+                        builder: (_, child) => Transform.translate(
+                          offset: Offset(_shakeAnim.value, 0),
+                          child: child,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.info_outline_rounded,
-                                      size: 16,
-                                      color: Colors.red.shade700,
+                                Expanded(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: _errorText != null
+                                          ? Colors.red.shade50
+                                          : Colors.grey.shade50,
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: _errorText != null
+                                            ? Colors.red.shade300
+                                            : Colors.grey.shade200,
+                                        width: 1.5,
+                                      ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'AKSI TIDAK DAPAT DIBATALKAN',
+                                    child: TextField(
+                                      controller: _ctrl,
+                                      focusNode: _focusNode,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(5),
+                                      ],
+                                      onChanged: _onChanged,
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: 28,
                                         fontWeight: FontWeight.w800,
-                                        letterSpacing: 0.5,
-                                        color: Colors.red.shade700,
+                                        letterSpacing: -0.5,
+                                        color: _errorText != null
+                                            ? Colors.red.shade700
+                                            : const Color(0xFF0F172A),
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      decoration: InputDecoration(
+                                        border: InputBorder.none,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              vertical: 16,
+                                              horizontal: 16,
+                                            ),
+                                        hintText: odo.toString(),
+                                        hintStyle: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w300,
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        suffixText: 'KM',
+                                        suffixStyle: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: _errorText != null
+                                              ? Colors.red.shade400
+                                              : primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // Delta badge
+                                if (delta > 0) ...[
+                                  const SizedBox(width: 12),
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: primary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: primary.withOpacity(0.3),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '+$delta',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w800,
+                                            color: primary,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                        Text(
+                                          'KM',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: primary.withOpacity(0.7),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+
+                            // Inline error
+                            AnimatedCrossFade(
+                              duration: const Duration(milliseconds: 200),
+                              crossFadeState: _errorText != null
+                                  ? CrossFadeState.showFirst
+                                  : CrossFadeState.showSecond,
+                              firstChild: Padding(
+                                padding: const EdgeInsets.only(top: 8, left: 4),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.error_outline,
+                                      size: 14,
+                                      color: Colors.red,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        _errorText ?? '',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Cycle akan bertambah dari ${widget.motor.cycle} → ${widget.motor.cycle + 1}.\nHistori servis cycle ini akan direset.\nOdometer field di atas digunakan sebagai nilai awal cycle baru (biasanya 0).',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red.shade800,
-                                    height: 1.5,
+                              ),
+                              secondChild: const SizedBox(height: 8),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // ── Save KM button ────────────────────────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isSaving ? null : _saveKm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primary,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: primary.withOpacity(0.5),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: _isSaving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
                                   ),
-                                ),
-                                const SizedBox(height: 12),
-                                // New cycle odo hint
-                                Text(
-                                  'Odometer awal cycle baru: ${_ctrl.text.isEmpty ? "0" : _ctrl.text} KM',
+                                )
+                              : const Text(
+                                  'Simpan Odometer',
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 15,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.red.shade700,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: _isSaving ? null : _saveCycle,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red.shade600,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 12,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    icon: const Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 18,
-                                    ),
-                                    label: Text(
-                                      'Konfirmasi Reset ke Cycle ${widget.motor.cycle + 1}',
-                                      style: const TextStyle(
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ── Cycle Reset Section (Collapsible) ─────────────────────
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        children: [
+                          // Toggle button
+                          InkWell(
+                            onTap: _toggleCycleSection,
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _cycleExpanded
+                                    ? Colors.red.shade50
+                                    : Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: _cycleExpanded
+                                      ? Colors.red.shade200
+                                      : Colors.grey.shade200,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _cycleExpanded
+                                        ? Icons.warning_amber_rounded
+                                        : Icons.refresh_rounded,
+                                    size: 18,
+                                    color: _cycleExpanded
+                                        ? Colors.red.shade700
+                                        : Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _cycleExpanded
+                                          ? 'Batalkan Reset Cycle'
+                                          : 'Reset Odometer Cycle',
+                                      style: TextStyle(
                                         fontSize: 13,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
+                                        color: _cycleExpanded
+                                            ? Colors.red.shade700
+                                            : Colors.grey.shade600,
                                       ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                  AnimatedRotation(
+                                    turns: _cycleExpanded ? 0.5 : 0,
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      color: _cycleExpanded
+                                          ? Colors.red.shade400
+                                          : Colors.grey.shade400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Expandable content
+                          SizeTransition(
+                            sizeFactor: _cycleExpandAnim,
+                            axis: Axis.vertical,
+                            child: AnimatedBuilder(
+                              animation: _shakeAnim,
+                              builder: (_, child) => Transform.translate(
+                                offset: Offset(_shakeAnim.value, 0),
+                                child: child,
+                              ),
+                              child: Column(
+                                children: [
+                                  const SizedBox(height: 12),
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade50,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: Colors.red.shade200,
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              Icons.info_outline_rounded,
+                                              size: 16,
+                                              color: Colors.red.shade700,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'AKSI TIDAK DAPAT DIBATALKAN',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 0.5,
+                                                color: Colors.red.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Cycle akan bertambah dari ${widget.motor.cycle} → ${widget.motor.cycle + 1}.\nHistori servis cycle ini akan direset.\nOdometer field di atas digunakan sebagai nilai awal cycle baru (biasanya 0).',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.red.shade800,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        // New cycle odo hint
+                                        Text(
+                                          'Odometer awal cycle baru: ${_ctrl.text.isEmpty ? "0" : _ctrl.text} KM',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.red.shade700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: _isSaving
+                                                ? null
+                                                : _saveCycle,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.red.shade600,
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 12,
+                                                  ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              elevation: 0,
+                                            ),
+                                            icon: const Icon(
+                                              Icons.warning_amber_rounded,
+                                              size: 18,
+                                            ),
+                                            label: Text(
+                                              'Konfirmasi Reset ke Cycle ${widget.motor.cycle + 1}',
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 28),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 28),
           ],
         ),
       ),

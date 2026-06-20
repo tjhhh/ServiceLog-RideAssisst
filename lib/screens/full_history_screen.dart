@@ -7,6 +7,8 @@ import '../models/service_record.dart';
 import '../models/motorcycle.dart';
 import '../providers/service_provider.dart';
 import '../providers/motorcycle_provider.dart';
+import '../providers/settings_provider.dart';
+import '../services/share_service.dart';
 import '../widgets/history/service_detail_sheet.dart';
 import 'add_service_screen.dart';
 
@@ -50,8 +52,8 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
       final query = _searchQuery.toLowerCase();
       records = records.where((r) {
         return r.serviceType.toLowerCase().contains(query) ||
-               r.notes.toLowerCase().contains(query) ||
-               (r.location != null && r.location!.toLowerCase().contains(query));
+            r.notes.toLowerCase().contains(query) ||
+            (r.location != null && r.location!.toLowerCase().contains(query));
       }).toList();
     }
 
@@ -157,15 +159,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
-          'MAINTENANCE LOG',
-          style: TextStyle(
-            fontSize: 12,
-            letterSpacing: 1.2,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         const Text(
           'Service History',
           textAlign: TextAlign.center,
@@ -209,31 +203,118 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                   _selectedMotorcycleId = value == '-1' ? null : value;
                 });
               },
-              itemBuilder: (context) => [
-                const PopupMenuItem<String>(
-                  value: '-1',
-                  child: Text('All Motors'),
-                ),
-                ...motorcycles.map((motor) {
-                  return PopupMenuItem<String>(
-                    value: motor.id ?? '-1',
-                    child: Text('${motor.brand} ${motor.name}'),
+              itemBuilder: (context) {
+                final themeColor = Theme.of(context).colorScheme.primary;
+                final isAllSelected = _selectedMotorcycleId == null;
+                return [
+                  PopupMenuItem<String>(
+                    value: '-1',
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.all_inclusive_rounded,
+                            color: isAllSelected
+                                ? themeColor
+                                : Colors.grey.shade500,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'All Motors',
+                              style: TextStyle(
+                                color: isAllSelected
+                                    ? themeColor
+                                    : Colors.black87,
+                                fontWeight: isAllSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          if (isAllSelected)
+                            Icon(
+                              Icons.check_circle,
+                              color: themeColor,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  ...motorcycles.map((motor) {
+                    final isSelected = motor.id == _selectedMotorcycleId;
+                    return PopupMenuItem<String>(
+                      value: motor.id ?? '-1',
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+                          ),
+                        ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.two_wheeler_outlined,
+                            color: isSelected
+                                ? themeColor
+                                : Colors.grey.shade500,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '${motor.brand} ${motor.name}',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? themeColor
+                                    : Colors.black87,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          if (isSelected)
+                            Icon(
+                              Icons.check_circle,
+                              color: themeColor,
+                              size: 20,
+                            ),
+                        ],
+                      ),
+                    ),
                   );
                 }),
-              ],
+              ];
+            },
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     selectedMotorName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.indigo,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.keyboard_arrow_down, color: Colors.indigo),
+                  Icon(Icons.keyboard_arrow_down, color: Theme.of(context).colorScheme.primary),
                 ],
               ),
             ),
@@ -467,6 +548,12 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
       );
     }
 
+    final motorcycles = ref.watch(motorcycleProvider);
+    final themeColorValue = ref.watch(
+      settingsProvider.select((s) => s.themeColorValue),
+    );
+    final themeColor = Color(themeColorValue);
+
     return Column(
       children: records.asMap().entries.map((entry) {
         final index = entry.key;
@@ -484,7 +571,7 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           case 'chain':
             typeColor = Colors.blue.shade100;
             typeTextColor = Colors.blue.shade700;
-            dotColor = Theme.of(context).colorScheme.primary;
+            dotColor = themeColor;
             break;
           case 'tires':
           case 'brakes':
@@ -503,18 +590,29 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
           decimalDigits: 0,
         );
 
+        // Find motorcycle for export
+        Motorcycle? motorcycle;
+        try {
+          motorcycle = motorcycles.firstWhere(
+            (m) => m.id == record.motorcycleId,
+          );
+        } catch (_) {}
+
         return _buildTimelineItem(
+          record: record,
+          motorcycle: motorcycle,
+          themeColor: themeColor,
           type: record.serviceType.toUpperCase(),
           typeColor: typeColor,
           typeTextColor: typeTextColor,
           dotColor: dotColor,
           title: '${record.serviceType} Maintenance',
           price: currencyFormat.format(record.cost),
-          location: record.location, // Kirim lokasi ke timeline item
+          location: record.location,
           description: record.notes.isNotEmpty
               ? record.notes
               : 'No additional notes provided.',
-          imageUrl: record.receiptImagePath, // ini path lokal
+          imageUrl: record.receiptImagePath,
           isLast: isLast,
           date: DateFormat('MMM dd, yyyy').format(record.date),
           onTap: () => showServiceDetailSheet(context, record),
@@ -524,6 +622,9 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
   }
 
   Widget _buildTimelineItem({
+    required ServiceRecord record,
+    required Motorcycle? motorcycle,
+    required Color themeColor,
     required String type,
     required Color typeColor,
     required Color typeTextColor,
@@ -590,138 +691,185 @@ class _FullHistoryScreenState extends ConsumerState<FullHistoryScreen> {
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: typeColor,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            type,
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                              color: typeTextColor,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: typeColor,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                type,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                  color: typeTextColor,
+                                ),
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        date,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(height: 4),
                       Text(
-                        price,
+                        title,
                         style: const TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.bold,
                           color: Colors.black87,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    date,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  if (location != null && location.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: Colors.indigo,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            location,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.indigo,
-                              fontWeight: FontWeight.w500,
+                      if (location != null && location.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 16,
+                              color: themeColor,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                location,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: themeColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.6,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      if (imageUrl != null && imageUrl.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.file(
+                            File(imageUrl),
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Container(
+                                height: 140,
+                                width: double.infinity,
+                                color: Colors.grey[200],
+                                child: const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.image_not_supported_rounded,
+                                      color: Colors.grey,
+                                      size: 40,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      'Gambar tidak ditemukan',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.6,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  if (imageUrl != null && imageUrl.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Image.file(
-                        File(imageUrl),
-                        height: 140,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            height: 140,
-                            width: double.infinity,
-                            color: Colors.grey[200],
-                            child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.image_not_supported_rounded,
-                                  color: Colors.grey,
-                                  size: 40,
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Gambar tidak ditemukan',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
+                      // ── Share button ──────────────────────────────────
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          GestureDetector(
+                            onTap: () => ShareService.shareServiceRecord(
+                              context: context,
+                              record: record,
+                              motorcycle: motorcycle,
+                              themeColor: themeColor,
                             ),
-                          );
-                        },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 7,
+                              ),
+                              decoration: BoxDecoration(
+                                color: themeColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: themeColor.withOpacity(0.15),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.ios_share_rounded,
+                                    size: 14,
+                                    color: themeColor,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Share',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: themeColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ],
+                    ],
+                  ),
+                ),
               ),
-            ),
-            ),
             ),
           ),
         ],
