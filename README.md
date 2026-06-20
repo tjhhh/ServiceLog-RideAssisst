@@ -12,16 +12,19 @@
 
 *   **📊 Dynamic Dashboard**: Pantau total odometer dan persentase "Kesehatan Kendaraan" secara presisi (Kalkulasi dinamis berbasis interval penggantian oli 2000 KM). Fitur ini akan otomatis memberi peringatan *"ATTENTION REQUIRED"* saat motor Anda sudah waktunya diservis.
 *   **🛠️ Service History**: Catat pengeluaran, lokasi bengkel, odometer, jenis servis (Oli, Rem, Filter, dsb), hingga lampiran foto nota servis. History dilengkapi timeline visual yang mudah dibaca.
+*   **📤 Branded Share & Export**: Bagikan detail kwitansi servis/riwayat perawatan per item/card menjadi gambar JPG bergaya modern secara instan. Fitur ini menyertakan foto struk fisik dari database lokal, informasi odometer, tanggal, biaya, lokasi, dan catatan, lengkap dengan watermark logo asli RideAssist. Dilengkapi dengan algoritma kompresi adaptif untuk menjaga ukuran file tetap di bawah 1 MB.
+*   **🎨 Dynamic Theme Support**: Dukungan pemilihan skema warna sistem dinamis melalui halaman Settings. Seluruh elemen UI, termasuk dropdown filter dan select/option motor di berbagai form halaman, otomatis menyesuaikan dengan warna tema yang Anda pilih.
 *   **🏍️ Garage Management**: Punya lebih dari satu kendaraan? Anda dapat menambah, melihat informasi spesifik, atau menghapus sepeda motor dengan mudah melalui menu "Manage" yang mengusung desain kartu modern berbasis *Glassmorphism*.
 *   **📡 Offline First**: Semua data (termasuk penyimpanan gambar/nota) disimpan 100% secara lokal dan aman di perangkat menggunakan **SQLite**. Tidak butuh koneksi internet!
 
-## 🛠️ Tech Stack(Real)
+## 🛠️ Tech Stack (Real)
 
 *   **Framework**: [Flutter](https://flutter.dev/)
 *   **State Management**: [Riverpod](https://riverpod.dev/) (`flutter_riverpod`)
 *   **Local Database**: [Sqflite](https://pub.dev/packages/sqflite)
 *   **Styling**: Material 3, Custom Glassmorphism UI
-*   **Plugin Penting**: `image_picker`, `path_provider`, `intl`
+*   **Plugin Ekspor & Berbagi**: `screenshot`, `share_plus`, `flutter_image_compress`
+*   **Plugin Penting Lainnya**: `image_picker`, `path_provider`, `intl`, `shared_preferences`
 
 ## 📚 Dokumentasi Teknis
 
@@ -59,13 +62,16 @@ flutter run
 ```text
 lib/
 ├── database/        # Konfigurasi SQLite & skrip migrasi tabel
-├── models/          # Model data (Motorcycle, ServiceRecord)
-├── providers/       # Riverpod State Management (MotorcycleProvider, dsb.)
+├── models/          # Model data (Motorcycle, ServiceRecord, dsb.)
+├── providers/       # Riverpod State Management (MotorcycleProvider, SettingsProvider, dsb.)
+├── services/        # Service layer (ShareService, AppLogger, AuthService)
 ├── screens/         # Semua UI halaman aplikasi
 │   ├── home_screen.dart       # Dashboard utama
 │   ├── history_screen.dart    # Daftar riwayat servis / Timeline
+│   ├── full_history_screen.dart# Riwayat servis lengkap dengan opsi filter & share
 │   ├── manage_screen.dart     # Pengaturan Garasi & Kendaraan
-│   └── add_service_screen.dart# Formulir tambah servis baru
+│   └── add_service_screen.dart# Formulir tambah servis baru dengan dynamic theme
+├── widgets/         # Komponen UI reusable (HistoryExportTemplate, dsb.)
 └── main.dart        # Entry point aplikasi & Bottom Navigation Bar
 ```
 
